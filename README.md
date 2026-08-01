@@ -11,8 +11,9 @@ Organizational Health Assessment covering:
 - Project Planning
 - Compliance Basics (weighted 2x)
 
-Each submission is timestamped and stored in SQLite. After submitting, the org
-sees a results page with:
+Each submission is timestamped and stored in Postgres (falls back to a local
+SQLite file if `DATABASE_URL` isn't set, for easy local development). After
+submitting, the org sees a results page with:
 
 - A weighted readiness score out of 100 (financial readiness and compliance
   basics count roughly double toward the overall score)
@@ -95,7 +96,7 @@ production:
   friendly fallback message
 - `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `ADMIN_NOTIFICATION_EMAIL`,
   `TEST_EMAIL_TOKEN` — see the Email (Resend) section above
-
-The SQLite database file is written to local disk, which is fine for a demo
-but is not persistent across Railway redeploys — swap in a hosted database
-before this goes to real users.
+- `DATABASE_URL` — add a Postgres database in Railway and reference its
+  `DATABASE_URL` on this service (`${{Postgres.DATABASE_URL}}`) so
+  submissions persist across redeploys. Without it, the app falls back to a
+  local SQLite file that's wiped on every redeploy.

@@ -2,18 +2,28 @@ import json
 import os
 import sqlite3
 
-DB_PATH = os.environ.get("DATABASE_PATH", "missionos.db")
+DATABASE_URL = os.environ.get("DATABASE_URL")
+SQLITE_PATH = os.environ.get("DATABASE_PATH", "missionos.db")
+USE_POSTGRES = bool(DATABASE_URL)
+
+if USE_POSTGRES:
+    import psycopg2
+
+PLACEHOLDER = "%s" if USE_POSTGRES else "?"
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    if USE_POSTGRES:
+        return psycopg2.connect(DATABASE_URL)
+    conn = sqlite3.connect(SQLITE_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def init_db():
     conn = get_db()
-    conn.execute(
+    cur = conn.cursor()
+    cur.execute(
         """
         CREATE TABLE IF NOT EXISTS submissions (
             id TEXT PRIMARY KEY,
@@ -31,6 +41,7 @@ def init_db():
         """
     )
     conn.commit()
+    cur.close()
     conn.close()
 
 
@@ -48,11 +59,13 @@ def save_submission(
     submitted_at,
 ):
     conn = get_db()
-    conn.execute(
+    cur = conn.cursor()
+    placeholders = ", ".join([PLACEHOLDER] * 11)
+    cur.execute(
         "INSERT INTO submissions "
         "(id, org_name, contact_name, contact_email, answers_json, score, breakdown_json, "
         "gaps_json, action_plan_json, action_plan_error, submitted_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        f"VALUES ({placeholders})",
         (
             submission_id,
             org_name,
@@ -68,25 +81,34 @@ def save_submission(
         ),
     )
     conn.commit()
+    cur.close()
     conn.close()
 
 
 def get_submission(submission_id):
     conn = get_db()
-    row = conn.execute("SELECT * FROM submissions WHERE id = ?", (submission_id,)).fetchone()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, org_name, contact_name, contact_email, answers_json, score, "
+        "breakdown_json, gaps_json, action_plan_json, action_plan_error, submitted_at "
+        f"FROM submissions WHERE id = {PLACEHOLDER}",
+        (submission_id,),
+    )
+    row = cur.fetchone()
+    cur.close()
     conn.close()
     if not row:
         return None
     return {
-        "id": row["id"],
-        "org_name": row["org_name"],
-        "contact_name": row["contact_name"],
-        "contact_email": row["contact_email"],
-        "answers": json.loads(row["answers_json"]),
-        "score": row["score"],
-        "breakdown": json.loads(row["breakdown_json"]),
-        "gaps": json.loads(row["gaps_json"]),
-        "action_plan": json.loads(row["action_plan_json"]) if row["action_plan_json"] else None,
-        "action_plan_error": row["action_plan_error"],
-        "submitted_at": row["submitted_at"],
+        "id": row[0],
+        "org_name": row[1],
+        "contact_name": row[2],
+        "contact_email": row[3],
+        "answers": json.loads(row[4]),
+        "score": row[5],
+        "breakdown": json.loads(row[6]),
+        "gaps": json.loads(row[7]),
+        "action_plan": json.loads(row[8]) if row[8] else None,
+        "action_plan_error": row[9],
+        "submitted_at": row[10],
     }

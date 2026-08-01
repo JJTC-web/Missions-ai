@@ -3,3 +3,4 @@ gunicorn==22.0.0
 python-dotenv==1.0.1
 anthropic==0.120.2
 requests==2.32.3
+psycopg2-binary==2.9.9
