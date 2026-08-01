@@ -1,20 +1,31 @@
 import json
 import os
 import sqlite3
+from urllib.parse import unquote, urlparse
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 SQLITE_PATH = os.environ.get("DATABASE_PATH", "missionos.db")
 USE_POSTGRES = bool(DATABASE_URL)
 
 if USE_POSTGRES:
-    import psycopg2
+    # Pure-Python driver (no compiled libpq dependency) so it can't hit the
+    # "libpq.so.5 not found" class of error some minimal container runtimes
+    # produce with psycopg2-binary after a multi-stage build.
+    import pg8000.dbapi as pg8000
 
 PLACEHOLDER = "%s" if USE_POSTGRES else "?"
 
 
 def get_db():
     if USE_POSTGRES:
-        return psycopg2.connect(DATABASE_URL)
+        parsed = urlparse(DATABASE_URL)
+        return pg8000.connect(
+            user=unquote(parsed.username) if parsed.username else None,
+            password=unquote(parsed.password) if parsed.password else None,
+            host=parsed.hostname,
+            port=parsed.port or 5432,
+            database=parsed.path.lstrip("/"),
+        )
     conn = sqlite3.connect(SQLITE_PATH)
     conn.row_factory = sqlite3.Row
     return conn
