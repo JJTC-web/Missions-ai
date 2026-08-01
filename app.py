@@ -7,6 +7,7 @@ from flask import Flask, render_template, request, redirect, url_for, abort, ses
 
 import action_plan
 import db
+import email_notify
 from assessment import SECTIONS, SECTION_KEYS, SCALE_LABELS
 from scoring import compute_score_breakdown
 
@@ -116,6 +117,8 @@ def assessment_submit():
         app.logger.error("Action plan generation failed: %s", e)
         plan_error = str(e)
 
+    gap_titles = [gap["title"] for gap in gaps]
+
     db.save_submission(
         submission_id=submission_id,
         org_name=draft["org_name"],
@@ -124,11 +127,32 @@ def assessment_submit():
         answers=draft["answers"],
         score=score,
         breakdown=breakdown,
-        gaps=[gap["title"] for gap in gaps],
+        gaps=gap_titles,
         action_plan=plan,
         action_plan_error=plan_error,
         submitted_at=datetime.now(timezone.utc),
     )
+
+    submission = {
+        "org_name": draft["org_name"],
+        "contact_email": draft["contact_email"],
+        "score": score,
+        "breakdown": breakdown,
+        "gaps": gap_titles,
+        "action_plan": plan,
+        "action_plan_error": plan_error,
+    }
+
+    try:
+        email_notify.send_results_email(submission)
+    except Exception as e:
+        app.logger.error("Failed to send results email to submitter: %s", e)
+
+    try:
+        results_url = url_for("assessment_results", submission_id=submission_id, _external=True)
+        email_notify.send_admin_notification(submission, results_url)
+    except Exception as e:
+        app.logger.error("Failed to send admin notification email: %s", e)
 
     session.pop("draft", None)
     return redirect(url_for("assessment_results", submission_id=submission_id))
@@ -140,6 +164,81 @@ def assessment_results(submission_id):
     if not submission:
         abort(404)
     return render_template("results.html", submission=submission)
+
+
+_SAMPLE_SUBMISSION = {
+    "org_name": "Sample Org (Test Send)",
+    "score": 62,
+    "breakdown": [
+        {"key": "governance", "title": "Governance", "weight": 1, "score": 75},
+        {"key": "financial_readiness", "title": "Financial Readiness", "weight": 2, "score": 50},
+        {"key": "volunteer_management", "title": "Volunteer Management", "weight": 1, "score": 75},
+        {"key": "project_planning", "title": "Project Planning", "weight": 1, "score": 50},
+        {"key": "compliance_basics", "title": "Compliance Basics", "weight": 2, "score": 50},
+    ],
+    "gaps": ["Financial Readiness", "Project Planning", "Compliance Basics"],
+    "action_plan": [
+        {
+            "area": "Financial Readiness",
+            "action_steps": [
+                "Draft a board-approved annual budget for the current fiscal year.",
+                "Set up a recurring monthly financial review meeting with the treasurer.",
+            ],
+            "timeline": "Within 30 days",
+            "resources_needed": ["Treasurer or bookkeeper time", "A simple budget template"],
+        },
+        {
+            "area": "Project Planning",
+            "action_steps": [
+                "Define success metrics for your current top program.",
+                "Build a basic project timeline for the next program launch.",
+            ],
+            "timeline": "Next quarter",
+            "resources_needed": ["Program lead time", "A project planning template"],
+        },
+        {
+            "area": "Compliance Basics",
+            "action_steps": [
+                "Confirm your Form 990 filing status and due date.",
+                "Check charitable registration status in every state you solicit in.",
+            ],
+            "timeline": "Within 30 days",
+            "resources_needed": ["An hour with your accountant or a compliance checklist"],
+        },
+    ],
+    "action_plan_error": None,
+}
+
+
+@app.route("/test-email")
+def test_email():
+    """Trigger a real send of both submission emails for manual verification.
+
+    Protected by TEST_EMAIL_TOKEN so it can't be used as an open email relay.
+    Usage: /test-email?token=<TEST_EMAIL_TOKEN>&to=<email-to-receive-the-results-email>
+    """
+    expected_token = os.environ.get("TEST_EMAIL_TOKEN")
+    if not expected_token or request.args.get("token") != expected_token:
+        abort(404)
+
+    to_email = request.args.get("to") or email_notify.ADMIN_NOTIFICATION_EMAIL
+    sample = dict(_SAMPLE_SUBMISSION, contact_email=to_email)
+
+    results = {}
+    try:
+        email_notify.send_results_email(sample)
+        results["submitter_results_email"] = f"sent to {to_email}"
+    except Exception as e:
+        results["submitter_results_email"] = f"failed: {e}"
+
+    try:
+        results_url = url_for("home", _external=True)
+        email_notify.send_admin_notification(sample, results_url)
+        results["admin_notification_email"] = f"sent to {email_notify.ADMIN_NOTIFICATION_EMAIL}"
+    except Exception as e:
+        results["admin_notification_email"] = f"failed: {e}"
+
+    return results
 
 
 if __name__ == "__main__":
