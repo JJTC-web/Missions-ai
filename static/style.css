@@ -192,3 +192,57 @@ fieldset.question legend {
   color: var(--muted);
   font-style: italic;
 }
+
+.breakdown-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.breakdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  margin-bottom: 0.5rem;
+}
+
+.breakdown-title {
+  font-weight: 600;
+  flex: 1;
+}
+
+.breakdown-weight {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.breakdown-score {
+  font-weight: 700;
+  color: var(--accent-dark);
+}
+
+.plan-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin: 1rem 0;
+  background: var(--card-bg);
+}
+
+.plan-card h3 {
+  margin-top: 0;
+}
+
+.plan-timeline {
+  color: var(--muted);
+}
+
+.plan-subheading {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}

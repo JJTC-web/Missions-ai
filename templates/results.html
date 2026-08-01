@@ -5,13 +5,24 @@
 <p class="submitted-at">Submitted {{ submission.submitted_at }} UTC</p>
 
 <div class="score-card">
-  <p class="score-label">Placeholder Readiness Score</p>
+  <p class="score-label">Overall Readiness Score</p>
   <p class="score-value">{{ submission.score }}<span>/100</span></p>
   <p class="score-note">
-    This is a preliminary score from simple averaging. The full scoring engine and
-    AI-generated action plan are coming next.
+    Weighted across all five areas &mdash; financial readiness and compliance basics
+    count roughly double toward the overall score.
   </p>
 </div>
+
+<h2>Score Breakdown</h2>
+<ul class="breakdown-list">
+  {% for area in submission.breakdown %}
+  <li class="breakdown-item">
+    <span class="breakdown-title">{{ area.title }}</span>
+    <span class="breakdown-weight">{{ area.weight }}&times; weight</span>
+    <span class="breakdown-score">{{ area.score }}/100</span>
+  </li>
+  {% endfor %}
+</ul>
 
 <h2>Gap Areas</h2>
 {% if submission.gaps %}
@@ -19,12 +30,35 @@
   {% for gap in submission.gaps %}<li>{{ gap }}</li>{% endfor %}
 </ul>
 {% else %}
-<p>No major gaps flagged in this preliminary pass &mdash; nice work! Full analysis is coming soon.</p>
+<p>No gap areas flagged &mdash; every area scored 80 or above. Nice work!</p>
 {% endif %}
 
-<p class="next-steps-note">
-  Next up: MissionOS AI will turn these gaps into a prioritized, AI-generated action plan.
+<h2>AI-Generated Action Plan</h2>
+{% if submission.action_plan_error %}
+<p class="error">
+  We couldn't generate an AI action plan for this submission right now. Your score
+  and gap list above are still accurate &mdash; try refreshing this page in a bit.
 </p>
+{% elif submission.action_plan %}
+{% for plan in submission.action_plan %}
+<div class="plan-card">
+  <h3>{{ plan.area }}</h3>
+  <p class="plan-timeline"><strong>Timeline:</strong> {{ plan.timeline }}</p>
+
+  <p class="plan-subheading">Action Steps</p>
+  <ul>
+    {% for step in plan.action_steps %}<li>{{ step }}</li>{% endfor %}
+  </ul>
+
+  <p class="plan-subheading">Resources Needed</p>
+  <ul>
+    {% for resource in plan.resources_needed %}<li>{{ resource }}</li>{% endfor %}
+  </ul>
+</div>
+{% endfor %}
+{% else %}
+<p>No action plan needed &mdash; no gap areas were flagged.</p>
+{% endif %}
 
 <a class="button" href="{{ url_for('home') }}">Back to home</a>
 {% endblock %}

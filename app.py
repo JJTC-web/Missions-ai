@@ -5,8 +5,10 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, abort, session
 
+import action_plan
 import db
 from assessment import SECTIONS, SECTION_KEYS, SCALE_LABELS
+from scoring import compute_score_breakdown
 
 load_dotenv()
 
@@ -104,7 +106,15 @@ def assessment_submit():
         return redirect(url_for("assessment_start"))
 
     submission_id = str(uuid.uuid4())
-    score, gaps = placeholder_score(draft["answers"])
+    score, breakdown, gaps = compute_score_breakdown(draft["answers"])
+
+    plan = None
+    plan_error = None
+    try:
+        plan = action_plan.generate_action_plan(draft["org_name"], gaps, draft["answers"])
+    except Exception as e:
+        app.logger.error("Action plan generation failed: %s", e)
+        plan_error = str(e)
 
     db.save_submission(
         submission_id=submission_id,
@@ -113,7 +123,10 @@ def assessment_submit():
         contact_email=draft["contact_email"],
         answers=draft["answers"],
         score=score,
-        gaps=gaps,
+        breakdown=breakdown,
+        gaps=[gap["title"] for gap in gaps],
+        action_plan=plan,
+        action_plan_error=plan_error,
         submitted_at=datetime.now(timezone.utc),
     )
 
@@ -127,27 +140,6 @@ def assessment_results(submission_id):
     if not submission:
         abort(404)
     return render_template("results.html", submission=submission)
-
-
-def placeholder_score(answers):
-    """Naive average-based placeholder score and gap list.
-
-    Stands in until the real scoring engine and AI action plan generator are wired up.
-    """
-    section_averages = {}
-    for section_key, section_answers in answers.items():
-        values = list(section_answers.values())
-        section_averages[section_key] = sum(values) / len(values) if values else 0
-
-    overall_avg = sum(section_averages.values()) / len(section_averages) if section_averages else 0
-    score = round((overall_avg / 5) * 100)
-
-    gaps = [
-        SECTIONS[section_key]["title"]
-        for section_key, avg in sorted(section_averages.items(), key=lambda item: item[1])
-        if avg < 4
-    ]
-    return score, gaps
 
 
 if __name__ == "__main__":

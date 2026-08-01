@@ -15,6 +15,7 @@ SECTIONS = OrderedDict(
             {
                 "title": "Governance",
                 "description": "Board structure, oversight, and decision-making.",
+                "weight": 1,
                 "questions": [
                     {"id": "governance_board_meets", "text": "Our board meets regularly with documented minutes."},
                     {"id": "governance_bylaws", "text": "We have current, board-approved bylaws and a conflict-of-interest policy."},
@@ -28,6 +29,7 @@ SECTIONS = OrderedDict(
             {
                 "title": "Financial Readiness",
                 "description": "Budgeting, controls, and financial oversight.",
+                "weight": 2,
                 "questions": [
                     {"id": "financial_budget", "text": "We operate against a board-approved annual budget."},
                     {"id": "financial_controls", "text": "We have internal controls (separation of duties, approvals) over spending."},
@@ -41,6 +43,7 @@ SECTIONS = OrderedDict(
             {
                 "title": "Volunteer Management",
                 "description": "Recruiting, onboarding, and supporting volunteers.",
+                "weight": 1,
                 "questions": [
                     {"id": "volunteer_recruiting", "text": "We have a repeatable process for recruiting volunteers."},
                     {"id": "volunteer_onboarding", "text": "New volunteers go through a defined onboarding and training process."},
@@ -54,6 +57,7 @@ SECTIONS = OrderedDict(
             {
                 "title": "Project Planning",
                 "description": "Program design, timelines, and delivery.",
+                "weight": 1,
                 "questions": [
                     {"id": "project_goals", "text": "Programs have clearly defined goals and success metrics."},
                     {"id": "project_timeline", "text": "We use project plans and timelines to manage program delivery."},
@@ -67,6 +71,7 @@ SECTIONS = OrderedDict(
             {
                 "title": "Compliance Basics",
                 "description": "Legal, tax, and regulatory fundamentals.",
+                "weight": 2,
                 "questions": [
                     {"id": "compliance_990", "text": "We file our Form 990 (or applicable return) on time each year."},
                     {"id": "compliance_registrations", "text": "Our state charitable registrations are current in every state we solicit in."},

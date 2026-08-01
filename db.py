@@ -22,7 +22,10 @@ def init_db():
             contact_email TEXT,
             answers_json TEXT NOT NULL,
             score INTEGER NOT NULL,
+            breakdown_json TEXT NOT NULL,
             gaps_json TEXT NOT NULL,
+            action_plan_json TEXT,
+            action_plan_error TEXT,
             submitted_at TEXT NOT NULL
         )
         """
@@ -31,12 +34,25 @@ def init_db():
     conn.close()
 
 
-def save_submission(submission_id, org_name, contact_name, contact_email, answers, score, gaps, submitted_at):
+def save_submission(
+    submission_id,
+    org_name,
+    contact_name,
+    contact_email,
+    answers,
+    score,
+    breakdown,
+    gaps,
+    action_plan,
+    action_plan_error,
+    submitted_at,
+):
     conn = get_db()
     conn.execute(
         "INSERT INTO submissions "
-        "(id, org_name, contact_name, contact_email, answers_json, score, gaps_json, submitted_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "(id, org_name, contact_name, contact_email, answers_json, score, breakdown_json, "
+        "gaps_json, action_plan_json, action_plan_error, submitted_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             submission_id,
             org_name,
@@ -44,7 +60,10 @@ def save_submission(submission_id, org_name, contact_name, contact_email, answer
             contact_email,
             json.dumps(answers),
             score,
+            json.dumps(breakdown),
             json.dumps(gaps),
+            json.dumps(action_plan) if action_plan is not None else None,
+            action_plan_error,
             submitted_at.isoformat(),
         ),
     )
@@ -65,6 +84,9 @@ def get_submission(submission_id):
         "contact_email": row["contact_email"],
         "answers": json.loads(row["answers_json"]),
         "score": row["score"],
+        "breakdown": json.loads(row["breakdown_json"]),
         "gaps": json.loads(row["gaps_json"]),
+        "action_plan": json.loads(row["action_plan_json"]) if row["action_plan_json"] else None,
+        "action_plan_error": row["action_plan_error"],
         "submitted_at": row["submitted_at"],
     }
