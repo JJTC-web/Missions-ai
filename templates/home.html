@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}MissionOS AI &mdash; Organizational Health Assessment{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Helping nonprofits build stronger organizations before they build bigger programs.</h1>
+  <p class="lede">
+    MissionOS AI is a quick Organizational Health Assessment for nonprofits. In about
+    10 minutes you'll get a readiness snapshot across governance, financial readiness,
+    volunteer management, project planning, and compliance basics &mdash; plus a gap list
+    to guide what to shore up next.
+  </p>
+  <a class="button" href="{{ url_for('assessment_start') }}">Start your assessment</a>
+</section>
+
+<section class="how-it-works">
+  <h2>How it works</h2>
+  <ol>
+    <li>Answer a short set of questions across five core areas.</li>
+    <li>Get an instant readiness score and gap list.</li>
+    <li><em>Coming soon:</em> a prioritized, AI-generated action plan tailored to your gaps.</li>
+  </ol>
+</section>
+{% endblock %}

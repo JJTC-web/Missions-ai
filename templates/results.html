@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Your Results &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<h1>{{ submission.org_name }}&rsquo;s Readiness Snapshot</h1>
+<p class="submitted-at">Submitted {{ submission.submitted_at }} UTC</p>
+
+<div class="score-card">
+  <p class="score-label">Placeholder Readiness Score</p>
+  <p class="score-value">{{ submission.score }}<span>/100</span></p>
+  <p class="score-note">
+    This is a preliminary score from simple averaging. The full scoring engine and
+    AI-generated action plan are coming next.
+  </p>
+</div>
+
+<h2>Gap Areas</h2>
+{% if submission.gaps %}
+<ul class="gap-list">
+  {% for gap in submission.gaps %}<li>{{ gap }}</li>{% endfor %}
+</ul>
+{% else %}
+<p>No major gaps flagged in this preliminary pass &mdash; nice work! Full analysis is coming soon.</p>
+{% endif %}
+
+<p class="next-steps-note">
+  Next up: MissionOS AI will turn these gaps into a prioritized, AI-generated action plan.
+</p>
+
+<a class="button" href="{{ url_for('home') }}">Back to home</a>
+{% endblock %}

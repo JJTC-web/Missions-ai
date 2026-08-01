@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ section.title }} &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<p class="step-indicator">Step {{ section_index + 2 }} of {{ total_sections + 1 }}</p>
+<h1>{{ section.title }}</h1>
+<p>{{ section.description }}</p>
+
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<form method="post">
+  {% for question in section.questions %}
+  <fieldset class="question">
+    <legend>{{ question.text }}</legend>
+    <div class="scale-options">
+      {% for value in range(1, 6) %}
+      <label class="scale-option">
+        <input
+          type="radio"
+          name="{{ question.id }}"
+          value="{{ value }}"
+          {% if answers.get(question.id) == value %}checked{% endif %}
+          required
+        >
+        <span>{{ value }} &mdash; {{ scale_labels[value] }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% endfor %}
+  <button type="submit" class="button">
+    {% if section_index + 1 < total_sections %}Continue{% else %}See my results{% endif %}
+  </button>
+</form>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Start Your Assessment &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<p class="step-indicator">Step 1 of 6</p>
+<h1>Organizational Health Assessment</h1>
+<p>Let's start with a few basics about your organization.</p>
+
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<form method="post">
+  <label for="org_name">Organization name *</label>
+  <input type="text" id="org_name" name="org_name" value="{{ form.get('org_name', '') }}" required>
+
+  <label for="contact_name">Your name</label>
+  <input type="text" id="contact_name" name="contact_name" value="{{ form.get('contact_name', '') }}">
+
+  <label for="contact_email">Your email</label>
+  <input type="email" id="contact_email" name="contact_email" value="{{ form.get('contact_email', '') }}">
+
+  <button type="submit" class="button">Continue</button>
+</form>
+{% endblock %}
