@@ -123,3 +123,18 @@ def get_submission(submission_id):
         "action_plan_error": row[9],
         "submitted_at": row[10],
     }
+
+
+def list_submissions():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, org_name, score, submitted_at FROM submissions ORDER BY submitted_at DESC"
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [
+        {"id": row[0], "org_name": row[1], "score": row[2], "submitted_at": row[3]}
+        for row in rows
+    ]

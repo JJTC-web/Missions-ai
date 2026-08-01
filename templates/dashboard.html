@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Dashboard &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+  <h1>Submissions</h1>
+  <form method="post" action="{{ url_for('dashboard_logout') }}">
+    <button type="submit" class="button">Log Out ({{ admin_email }})</button>
+  </form>
+</div>
+
+{% if submissions %}
+<table class="dashboard-table">
+  <thead>
+    <tr>
+      <th>Organization</th>
+      <th>Score</th>
+      <th>Submitted</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for submission in submissions %}
+    <tr>
+      <td>{{ submission.org_name }}</td>
+      <td>{{ submission.score }}/100</td>
+      <td>{{ submission.submitted_at }}</td>
+      <td><a href="{{ url_for('assessment_results', submission_id=submission.id) }}">View full results</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No submissions yet.</p>
+{% endif %}
+{% endblock %}

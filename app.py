@@ -1,13 +1,15 @@
 import os
 import uuid
 from datetime import datetime, timezone
+from functools import wraps
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, abort, session
+from flask import Flask, render_template, request, redirect, url_for, abort, session, flash
 
 import action_plan
 import db
 import email_notify
+import supabase_auth
 from assessment import SECTIONS, SECTION_KEYS, SCALE_LABELS
 from scoring import compute_score_breakdown
 
@@ -164,6 +166,63 @@ def assessment_results(submission_id):
     if not submission:
         abort(404)
     return render_template("results.html", submission=submission)
+
+
+def _safe_next_url(next_url):
+    if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+        return next_url
+    return url_for("dashboard")
+
+
+def require_admin(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("is_admin"):
+            return redirect(url_for("dashboard_login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+@app.route("/dashboard/login", methods=["GET", "POST"])
+def dashboard_login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        next_url = request.form.get("next", "")
+
+        try:
+            authenticated_email = supabase_auth.sign_in_with_password(email, password)
+        except Exception as e:
+            flash(str(e))
+            return redirect(url_for("dashboard_login", next=next_url))
+
+        try:
+            if not supabase_auth.is_admin(authenticated_email):
+                flash("Your account doesn't have dashboard access.")
+                return redirect(url_for("dashboard_login", next=next_url))
+        except Exception as e:
+            flash(f"Couldn't verify dashboard access: {e}")
+            return redirect(url_for("dashboard_login", next=next_url))
+
+        session["is_admin"] = True
+        session["admin_email"] = authenticated_email
+        return redirect(_safe_next_url(next_url))
+
+    return render_template("dashboard_login.html", next=request.args.get("next", ""))
+
+
+@app.route("/dashboard/logout", methods=["POST"])
+def dashboard_logout():
+    session.pop("is_admin", None)
+    session.pop("admin_email", None)
+    return redirect(url_for("dashboard_login"))
+
+
+@app.route("/dashboard")
+@require_admin
+def dashboard():
+    submissions = db.list_submissions()
+    return render_template("dashboard.html", submissions=submissions, admin_email=session.get("admin_email"))
 
 
 _SAMPLE_SUBMISSION = {

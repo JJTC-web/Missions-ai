@@ -11,6 +11,13 @@
     <a class="brand" href="{{ url_for('home') }}">MissionOS AI</a>
   </header>
   <main class="container">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul class="flashes">
+          {% for message in messages %}<li>{{ message }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
     {% block content %}{% endblock %}
   </main>
   <footer class="site-footer">

@@ -33,6 +33,11 @@ Both email sends are best-effort — if Resend isn't configured or a send
 fails, the submission still saves and the results page still renders; the
 failure is only logged.
 
+The Organizational Health Assessment itself requires no login — anyone can
+take it. A separate `/dashboard` (login required, admin-only) lists every
+submission with org name, score, and submission date, linking into each
+full results page. See "Admin Dashboard" below for setup.
+
 ## Local development
 
 ```bash
@@ -77,6 +82,61 @@ This sends a sample results email to `to` (or to `ADMIN_NOTIFICATION_EMAIL`
 if `to` is omitted) and the admin notification to
 `ADMIN_NOTIFICATION_EMAIL`, then returns a small JSON status of both sends.
 
+## Admin Dashboard
+
+`/dashboard` requires a Supabase login **and** admin status — a valid
+Supabase account alone isn't enough. Set these:
+
+- `SUPABASE_URL` — your Supabase project URL
+- `SUPABASE_ANON_KEY` — used for the sign-in request itself
+- `SUPABASE_SERVICE_ROLE_KEY` — used server-side to check the `admins`
+  table, bypassing row-level security (never expose this key to the
+  browser)
+
+### One-time Supabase setup
+
+1. **Create at least one Auth user** to log in with, if you don't already
+   have one: Supabase dashboard → **Authentication** → **Users** → **Add
+   user**, and set an email + password directly (skip the confirmation
+   email flow for an admin you're creating yourself).
+2. **Create the `admins` table** — Supabase dashboard → **SQL Editor**, run:
+
+   ```sql
+   create table if not exists admins (
+     email text primary key
+   );
+
+   alter table admins enable row level security;
+
+   insert into admins (email) values ('ladyem34@gmail.com');
+   ```
+
+   Row-level security with no policies means the table is unreachable via
+   the public `anon` key — only the server-side `SUPABASE_SERVICE_ROLE_KEY`
+   (which bypasses RLS) can read it, which is what `is_admin()` uses. Add
+   more admins later with additional `insert` statements.
+3. Make sure the email you inserted into `admins` matches the email of the
+   Auth user from step 1 exactly.
+
+### Testing that a non-admin is blocked
+
+1. In Supabase, create a **second** Auth user with a different email (or
+   temporarily delete your own email's row from `admins` — see below).
+2. Go to `/dashboard`, which redirects to `/dashboard/login` since you're
+   not signed in.
+3. Sign in with the second account's email and password. You should see the
+   flash message **"Your account doesn't have dashboard access."** and stay
+   on the login page — not land on `/dashboard`.
+4. Confirm directly that you were never granted access: reload
+   `/dashboard` in the same browser tab — it redirects back to
+   `/dashboard/login` rather than showing submissions.
+
+Alternative without creating a second account: in Supabase's SQL Editor,
+run `delete from admins where email = 'your-email@example.com';`, try
+logging in with your own account (same blocked behavior above), then
+`insert into admins (email) values ('your-email@example.com');` to restore
+your access.
+
 ## Deployment (Railway)
 
 This app is set up to run the same way most Flask apps run on Railway:
@@ -100,3 +160,5 @@ production:
   `DATABASE_URL` on this service (`${{Postgres.DATABASE_URL}}`) so
   submissions persist across redeploys. Without it, the app falls back to a
   local SQLite file that's wiped on every redeploy.
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — see
+  the Admin Dashboard section above

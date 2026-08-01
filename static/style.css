@@ -99,7 +99,8 @@ label {
 }
 
 input[type="text"],
-input[type="email"] {
+input[type="email"],
+input[type="password"] {
   width: 100%;
   padding: 0.6rem;
   border: 1px solid var(--border);
@@ -142,6 +143,50 @@ fieldset.question legend {
 .error {
   color: var(--error);
   font-weight: 600;
+}
+
+.flashes {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+}
+
+.flashes li {
+  color: var(--error);
+  font-weight: 600;
+  background: var(--card-bg);
+  border: 1px solid var(--error);
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.dashboard-table th,
+.dashboard-table td {
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-table th {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .score-card {
