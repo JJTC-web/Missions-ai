@@ -53,7 +53,7 @@
 {% if directory %}
 <table class="dashboard-table">
   <thead>
-    <tr><th>Organization</th><th>Address</th><th>Services</th><th>Population Served</th><th>Phone</th></tr>
+    <tr><th>Organization</th><th>Address</th><th>Services</th><th>Population Served</th><th>Phone</th><th>Source</th></tr>
   </thead>
   <tbody>
     {% for entry in directory %}
@@ -63,6 +63,7 @@
       <td>{{ entry.services or '—' }}</td>
       <td>{{ entry.population_served or '—' }}</td>
       <td>{{ entry.phone or '—' }}</td>
+      <td>{{ entry.source or '—' }}</td>
     </tr>
     {% endfor %}
   </tbody>
@@ -86,6 +87,9 @@
 
   <label for="phone">Phone</label>
   <input type="text" id="phone" name="phone">
+
+  <label for="source">Source</label>
+  <input type="text" id="source" name="source" placeholder="e.g. Org website, https://example.org">
 
   <button type="submit" class="button">Add to Directory</button>
 </form>

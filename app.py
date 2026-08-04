@@ -337,6 +337,7 @@ def dashboard_region_add_resource(region_id):
     services = request.form.get("services", "").strip()
     population_served = request.form.get("population_served", "").strip()
     phone = request.form.get("phone", "").strip()
+    source = request.form.get("source", "").strip()
 
     if not name:
         stats = ndb.list_region_stats(region_id)
@@ -358,6 +359,7 @@ def dashboard_region_add_resource(region_id):
         services=services or None,
         population_served=population_served or None,
         phone=phone or None,
+        source=source or None,
     )
     return redirect(url_for("dashboard_region_detail", region_id=region_id))
 
