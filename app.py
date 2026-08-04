@@ -236,6 +236,17 @@ def dashboard_regions():
     return render_template("dashboard_regions.html", regions=regions, error=None, form={})
 
 
+@app.route("/dashboard/seed-gary", methods=["POST"])
+@require_admin
+def dashboard_seed_gary():
+    """One-click seed of the Gary, IN reference fixture (idempotent -- reuses
+    existing rows if already seeded), so it's not a manual 9-row re-entry."""
+    import seed_gary
+    region_id, org_id = seed_gary.seed()
+    flash(f"Seeded Gary, IN fixture (region id={region_id}, org id={org_id}).")
+    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+
 @app.route("/dashboard/regions/new", methods=["POST"])
 @require_admin
 def dashboard_regions_new():

@@ -7,6 +7,12 @@
 </div>
 <p><a href="{{ url_for('dashboard_orgs') }}">Manage Organizations &rarr;</a></p>
 
+{% if not regions %}
+<form method="post" action="{{ url_for('dashboard_seed_gary') }}">
+  <button type="submit" class="button">Seed Gary, IN Test Fixture</button>
+</form>
+{% endif %}
+
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
 {% if regions %}
