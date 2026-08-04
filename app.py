@@ -126,6 +126,7 @@ def assessment_submit():
 
     gap_titles = [gap["title"] for gap in gaps]
 
+    submitted_at = datetime.now(timezone.utc)
     db.save_submission(
         submission_id=submission_id,
         org_name=draft["org_name"],
@@ -137,8 +138,11 @@ def assessment_submit():
         gaps=gap_titles,
         action_plan=plan,
         action_plan_error=plan_error,
-        submitted_at=datetime.now(timezone.utc),
+        submitted_at=submitted_at,
     )
+
+    if plan:
+        db.create_action_items(submission_id, plan, submitted_at)
 
     submission = {
         "org_name": draft["org_name"],
@@ -170,7 +174,16 @@ def assessment_results(submission_id):
     submission = db.get_submission(submission_id)
     if not submission:
         abort(404)
-    return render_template("results.html", submission=submission)
+    action_items = db.list_action_items(submission_id)
+    return render_template("results.html", submission=submission, action_items=action_items)
+
+
+@app.route("/assessment/results/<submission_id>/action-items/<int:item_id>/toggle", methods=["POST"])
+def assessment_toggle_action_item(submission_id, item_id):
+    if not db.get_submission(submission_id):
+        abort(404)
+    db.toggle_action_item(item_id, submission_id)
+    return redirect(url_for("assessment_results", submission_id=submission_id))
 
 
 def _safe_next_url(next_url):

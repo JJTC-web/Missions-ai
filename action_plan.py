@@ -15,7 +15,21 @@ ACTION_PLAN_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "area": {"type": "string"},
-                    "action_steps": {"type": "array", "items": {"type": "string"}},
+                    "action_steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "text": {"type": "string", "description": "A specific, concrete action step"},
+                                "due_in_days": {
+                                    "type": "integer",
+                                    "description": "Realistic number of days from today for a small nonprofit to complete this step, e.g. 14, 30, 90",
+                                },
+                            },
+                            "required": ["text", "due_in_days"],
+                            "additionalProperties": False,
+                        },
+                    },
                     "timeline": {"type": "string"},
                     "resources_needed": {"type": "array", "items": {"type": "string"}},
                 },
@@ -32,9 +46,13 @@ SYSTEM_PROMPT = (
     "You are an organizational development advisor for small nonprofits. "
     "For each gap area you're given, write a detailed, practical action plan: "
     "specific action steps (concrete, not generic advice), a rough timeline "
-    "(e.g. 'within 30 days', 'next quarter'), and the resources needed "
-    "(people, tools, budget, or training). Keep recommendations realistic for "
-    "a small nonprofit with limited staff and budget."
+    "summary (e.g. 'within 30 days', 'next quarter'), and the resources "
+    "needed (people, tools, budget, or training). For each individual action "
+    "step, also give a realistic due_in_days estimate (an integer number of "
+    "days from today) so steps can be shown on a dated checklist -- order "
+    "steps chronologically and give earlier steps smaller due_in_days values. "
+    "Keep recommendations realistic for a small nonprofit with limited staff "
+    "and budget."
 )
 
 

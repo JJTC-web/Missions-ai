@@ -1,6 +1,7 @@
 import json
 import os
 import sqlite3
+from datetime import timedelta
 from urllib.parse import unquote, urlparse
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -51,9 +52,100 @@ def init_db():
         )
         """
     )
+    id_type = "SERIAL PRIMARY KEY" if USE_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    cur.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS action_items (
+            id {id_type},
+            submission_id TEXT NOT NULL REFERENCES submissions(id),
+            area TEXT NOT NULL,
+            step_text TEXT NOT NULL,
+            due_date TEXT,
+            is_complete INTEGER NOT NULL DEFAULT 0,
+            sort_order INTEGER NOT NULL
+        )
+        """
+    )
     conn.commit()
     cur.close()
     conn.close()
+
+
+def create_action_items(submission_id, plan, submitted_at):
+    """Flattens an action plan's per-area steps into dated checklist rows.
+
+    due_in_days on each step is an offset from submitted_at; stored as an
+    absolute ISO date so it renders as a real calendar date later.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    sort_order = 0
+    for area_plan in plan:
+        area = area_plan["area"]
+        for step in area_plan["action_steps"]:
+            due_in_days = step.get("due_in_days")
+            due_date = None
+            if isinstance(due_in_days, int):
+                due_date = (submitted_at + timedelta(days=due_in_days)).date().isoformat()
+            cur.execute(
+                f"INSERT INTO action_items (submission_id, area, step_text, due_date, is_complete, sort_order) "
+                f"VALUES ({PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, 0, {PLACEHOLDER})",
+                (submission_id, area, step["text"], due_date, sort_order),
+            )
+            sort_order += 1
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def list_action_items(submission_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, area, step_text, due_date, is_complete FROM action_items "
+        f"WHERE submission_id = {PLACEHOLDER} ORDER BY sort_order",
+        (submission_id,),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [
+        {
+            "id": row[0],
+            "area": row[1],
+            "step_text": row[2],
+            "due_date": row[3],
+            "is_complete": bool(row[4]),
+        }
+        for row in rows
+    ]
+
+
+def toggle_action_item(item_id, submission_id):
+    """Flips is_complete for an item, scoped to submission_id so a stray/guessed
+    item id from a different submission can't be toggled. Returns True if a row
+    was updated."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT is_complete FROM action_items "
+        f"WHERE id = {PLACEHOLDER} AND submission_id = {PLACEHOLDER}",
+        (item_id, submission_id),
+    )
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        conn.close()
+        return False
+    new_value = 0 if row[0] else 1
+    cur.execute(
+        f"UPDATE action_items SET is_complete = {PLACEHOLDER} WHERE id = {PLACEHOLDER}",
+        (new_value, item_id),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return True
 
 
 def save_submission(

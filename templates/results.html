@@ -46,9 +46,26 @@
   <p class="plan-timeline"><strong>Timeline:</strong> {{ plan.timeline }}</p>
 
   <p class="plan-subheading">Action Steps</p>
-  <ul>
-    {% for step in plan.action_steps %}<li>{{ step }}</li>{% endfor %}
+  {% set area_items = action_items | selectattr('area', 'equalto', plan.area) | list %}
+  {% if area_items %}
+  <ul class="checklist">
+    {% for item in area_items %}
+    <li class="checklist-item{% if item.is_complete %} checklist-item-done{% endif %}">
+      <form method="post" action="{{ url_for('assessment_toggle_action_item', submission_id=submission.id, item_id=item.id) }}">
+        <button type="submit" class="checklist-toggle" aria-label="Toggle complete">{{ '☑' if item.is_complete else '☐' }}</button>
+      </form>
+      <span class="checklist-text">{{ item.step_text }}</span>
+      {% if item.due_date %}<span class="checklist-due">Due {{ item.due_date }}</span>{% endif %}
+    </li>
+    {% endfor %}
   </ul>
+  {% else %}
+  <ul>
+    {% for step in plan.action_steps %}
+    <li>{{ step.text if step is mapping else step }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
 
   <p class="plan-subheading">Resources Needed</p>
   <ul>
