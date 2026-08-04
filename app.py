@@ -9,6 +9,7 @@ from flask import Flask, render_template, request, redirect, url_for, abort, ses
 import action_plan
 import db
 import email_notify
+import needs_assessment_db as ndb
 import supabase_auth
 from assessment import SECTIONS, SECTION_KEYS, SCALE_LABELS
 from scoring import compute_score_breakdown
@@ -19,6 +20,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
 db.init_db()
+ndb.init_needs_assessment_tables()
 
 
 @app.route("/")
