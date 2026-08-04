@@ -72,6 +72,7 @@ def init_needs_assessment_tables():
         )
         """
     )
+    _add_column_if_missing(cur, "resource_directory", "source", "TEXT")
 
     cur.execute(
         f"""
@@ -87,9 +88,31 @@ def init_needs_assessment_tables():
         """
     )
 
+    cur.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS region_research_drafts (
+            id {ID_TYPE},
+            region_id INTEGER REFERENCES regions(id),
+            kind TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            created_at {TIMESTAMP_DEFAULT}
+        )
+        """
+    )
+
     conn.commit()
     cur.close()
     conn.close()
+
+
+def _add_column_if_missing(cur, table, column, coltype):
+    if db.USE_POSTGRES:
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {coltype}")
+        return
+    cur.execute(f"PRAGMA table_info({table})")
+    existing = {row[1] for row in cur.fetchall()}
+    if column not in existing:
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
 
 
 # --- regions ---------------------------------------------------------------
@@ -238,13 +261,13 @@ def list_region_stats(region_id):
 
 # --- resource_directory ---------------------------------------------------
 
-def add_resource_directory_entry(region_id, name, address=None, services=None, population_served=None, phone=None, org_id=None):
+def add_resource_directory_entry(region_id, name, address=None, services=None, population_served=None, phone=None, org_id=None, source=None):
     conn = db.get_db()
     cur = conn.cursor()
     cur.execute(
-        f"INSERT INTO resource_directory (org_id, region_id, name, address, services, population_served, phone) "
-        f"VALUES ({P}, {P}, {P}, {P}, {P}, {P}, {P})",
-        (org_id, region_id, name, address, services, population_served, phone),
+        f"INSERT INTO resource_directory (org_id, region_id, name, address, services, population_served, phone, source) "
+        f"VALUES ({P}, {P}, {P}, {P}, {P}, {P}, {P}, {P})",
+        (org_id, region_id, name, address, services, population_served, phone, source),
     )
     conn.commit()
     cur.close()
@@ -255,7 +278,7 @@ def list_resource_directory(region_id):
     conn = db.get_db()
     cur = conn.cursor()
     cur.execute(
-        f"SELECT id, org_id, name, address, services, population_served, phone "
+        f"SELECT id, org_id, name, address, services, population_served, phone, source "
         f"FROM resource_directory WHERE region_id = {P} ORDER BY name",
         (region_id,),
     )
@@ -271,6 +294,7 @@ def list_resource_directory(region_id):
             "services": r[4],
             "population_served": r[5],
             "phone": r[6],
+            "source": r[7],
         }
         for r in rows
     ]
@@ -351,6 +375,60 @@ def list_needs_runs_for_org(org_id):
     cur.close()
     conn.close()
     return [{"id": r[0], "created_at": str(r[1]), "status": r[2]} for r in rows]
+
+
+# --- region_research_drafts -------------------------------------------
+
+def create_research_draft(region_id, kind, payload):
+    conn = db.get_db()
+    cur = conn.cursor()
+    draft_id = _insert_returning_id(
+        cur,
+        f"INSERT INTO region_research_drafts (region_id, kind, payload_json) VALUES ({P}, {P}, {P})",
+        (region_id, kind, json.dumps(payload)),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return draft_id
+
+
+def list_research_drafts(region_id):
+    conn = db.get_db()
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT id, kind, payload_json FROM region_research_drafts "
+        f"WHERE region_id = {P} ORDER BY id",
+        (region_id,),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [{"id": r[0], "kind": r[1], "payload": json.loads(r[2])} for r in rows]
+
+
+def get_research_draft(draft_id):
+    conn = db.get_db()
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT id, region_id, kind, payload_json FROM region_research_drafts WHERE id = {P}",
+        (draft_id,),
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not row:
+        return None
+    return {"id": row[0], "region_id": row[1], "kind": row[2], "payload": json.loads(row[3])}
+
+
+def delete_research_draft(draft_id):
+    conn = db.get_db()
+    cur = conn.cursor()
+    cur.execute(f"DELETE FROM region_research_drafts WHERE id = {P}", (draft_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 # --- helpers -----------------------------------------------------------

@@ -12,6 +12,7 @@ import db
 import email_notify
 import needs_assessment_db as ndb
 import needs_workbook_generator as workbook_gen
+import region_research
 import supabase_auth
 from assessment import SECTIONS, SECTION_KEYS, SCALE_LABELS
 from scoring import compute_score_breakdown
@@ -276,11 +277,13 @@ def dashboard_region_detail(region_id):
         abort(404)
     stats = ndb.list_region_stats(region_id)
     directory = ndb.list_resource_directory(region_id)
+    drafts = ndb.list_research_drafts(region_id)
     return render_template(
         "dashboard_region_detail.html",
         region=region,
         stats=stats,
         directory=directory,
+        drafts=drafts,
         stat_error=None,
         directory_error=None,
     )
@@ -302,11 +305,13 @@ def dashboard_region_add_stat(region_id):
     if not metric_name or not value:
         stats = ndb.list_region_stats(region_id)
         directory = ndb.list_resource_directory(region_id)
+        drafts = ndb.list_research_drafts(region_id)
         return render_template(
             "dashboard_region_detail.html",
             region=region,
             stats=stats,
             directory=directory,
+            drafts=drafts,
             stat_error="Metric name and value are required.",
             directory_error=None,
         )
@@ -336,11 +341,13 @@ def dashboard_region_add_resource(region_id):
     if not name:
         stats = ndb.list_region_stats(region_id)
         directory = ndb.list_resource_directory(region_id)
+        drafts = ndb.list_research_drafts(region_id)
         return render_template(
             "dashboard_region_detail.html",
             region=region,
             stats=stats,
             directory=directory,
+            drafts=drafts,
             stat_error=None,
             directory_error="Organization name is required.",
         )
@@ -352,6 +359,82 @@ def dashboard_region_add_resource(region_id):
         population_served=population_served or None,
         phone=phone or None,
     )
+    return redirect(url_for("dashboard_region_detail", region_id=region_id))
+
+
+@app.route("/dashboard/regions/<int:region_id>/research", methods=["POST"])
+@require_admin
+def dashboard_region_research(region_id):
+    region = ndb.get_region(region_id)
+    if not region:
+        abort(404)
+
+    try:
+        result = region_research.research_region(region)
+    except Exception as e:
+        app.logger.error("Region research failed for region %s: %s", region_id, e)
+        flash(f"AI research failed: {e}")
+        return redirect(url_for("dashboard_region_detail", region_id=region_id))
+
+    for stat in result.get("stats", []):
+        ndb.create_research_draft(region_id, "stat", stat)
+    for resource in result.get("resources", []):
+        ndb.create_research_draft(region_id, "resource", resource)
+
+    flash(
+        f"AI research drafted {len(result.get('stats', []))} stat(s) and "
+        f"{len(result.get('resources', []))} resource(s) for review below."
+    )
+    return redirect(url_for("dashboard_region_detail", region_id=region_id))
+
+
+@app.route("/dashboard/regions/<int:region_id>/drafts/<int:draft_id>/approve", methods=["POST"])
+@require_admin
+def dashboard_region_draft_approve(region_id, draft_id):
+    region = ndb.get_region(region_id)
+    if not region:
+        abort(404)
+    draft = ndb.get_research_draft(draft_id)
+    if not draft or draft["region_id"] != region_id:
+        abort(404)
+
+    payload = draft["payload"]
+    if draft["kind"] == "stat":
+        ndb.add_region_stat(
+            region_id,
+            payload.get("metric_name"),
+            payload.get("value"),
+            geography_level=payload.get("geography_level") or None,
+            source=payload.get("source") or None,
+        )
+    elif draft["kind"] == "resource":
+        ndb.add_resource_directory_entry(
+            region_id,
+            payload.get("name"),
+            address=payload.get("address") or None,
+            services=payload.get("services") or None,
+            population_served=payload.get("population_served") or None,
+            phone=payload.get("phone") or None,
+            source=payload.get("source") or None,
+        )
+
+    ndb.delete_research_draft(draft_id)
+    flash("Added to region data.")
+    return redirect(url_for("dashboard_region_detail", region_id=region_id))
+
+
+@app.route("/dashboard/regions/<int:region_id>/drafts/<int:draft_id>/reject", methods=["POST"])
+@require_admin
+def dashboard_region_draft_reject(region_id, draft_id):
+    region = ndb.get_region(region_id)
+    if not region:
+        abort(404)
+    draft = ndb.get_research_draft(draft_id)
+    if not draft or draft["region_id"] != region_id:
+        abort(404)
+
+    ndb.delete_research_draft(draft_id)
+    flash("Draft dismissed.")
     return redirect(url_for("dashboard_region_detail", region_id=region_id))
 
 

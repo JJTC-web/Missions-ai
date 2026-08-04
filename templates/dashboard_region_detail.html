@@ -89,4 +89,73 @@
 
   <button type="submit" class="button">Add to Directory</button>
 </form>
+
+<h2>AI Research</h2>
+<p>Have Claude search the web for public need statistics and existing service providers for this region. Nothing is saved until you approve it below.</p>
+<form method="post" action="{{ url_for('dashboard_region_research', region_id=region.id) }}">
+  <button type="submit" class="button">Research This Region with AI</button>
+</form>
+
+{% if drafts %}
+<h3>Pending AI-Suggested Data (review before saving)</h3>
+
+{% set stat_drafts = drafts | selectattr('kind', 'equalto', 'stat') | list %}
+{% set resource_drafts = drafts | selectattr('kind', 'equalto', 'resource') | list %}
+
+{% if stat_drafts %}
+<h4>Suggested Stats</h4>
+<table class="dashboard-table">
+  <thead>
+    <tr><th>Metric</th><th>Value</th><th>Geography Level</th><th>Source</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for draft in stat_drafts %}
+    <tr>
+      <td>{{ draft.payload.metric_name }}</td>
+      <td>{{ draft.payload.value }}</td>
+      <td>{{ draft.payload.geography_level or '—' }}</td>
+      <td>{{ draft.payload.source or '—' }}</td>
+      <td>
+        <form method="post" action="{{ url_for('dashboard_region_draft_approve', region_id=region.id, draft_id=draft.id) }}" style="display:inline">
+          <button type="submit" class="button">Approve</button>
+        </form>
+        <form method="post" action="{{ url_for('dashboard_region_draft_reject', region_id=region.id, draft_id=draft.id) }}" style="display:inline">
+          <button type="submit" class="button button-secondary">Reject</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if resource_drafts %}
+<h4>Suggested Resource Directory Entries</h4>
+<table class="dashboard-table">
+  <thead>
+    <tr><th>Organization</th><th>Address</th><th>Services</th><th>Population Served</th><th>Phone</th><th>Source</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for draft in resource_drafts %}
+    <tr>
+      <td>{{ draft.payload.name }}</td>
+      <td>{{ draft.payload.address or '—' }}</td>
+      <td>{{ draft.payload.services or '—' }}</td>
+      <td>{{ draft.payload.population_served or '—' }}</td>
+      <td>{{ draft.payload.phone or '—' }}</td>
+      <td>{{ draft.payload.source or '—' }}</td>
+      <td>
+        <form method="post" action="{{ url_for('dashboard_region_draft_approve', region_id=region.id, draft_id=draft.id) }}" style="display:inline">
+          <button type="submit" class="button">Approve</button>
+        </form>
+        <form method="post" action="{{ url_for('dashboard_region_draft_reject', region_id=region.id, draft_id=draft.id) }}" style="display:inline">
+          <button type="submit" class="button button-secondary">Reject</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endif %}
 {% endblock %}
