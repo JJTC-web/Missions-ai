@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ org.name }} &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+  <h1>{{ org.name }}</h1>
+  <a class="button" href="{{ url_for('dashboard_orgs') }}">Back to Organizations</a>
+</div>
+
+<p>
+  <strong>Region:</strong>
+  {% if region %}
+    <a href="{{ url_for('dashboard_region_detail', region_id=region.id) }}">{{ region.city }}, {{ region.state }}</a>
+  {% else %}
+    Unknown
+  {% endif %}
+</p>
+{% if org.contact_name %}<p><strong>Contact:</strong> {{ org.contact_name }}{% if org.contact_email %} ({{ org.contact_email }}){% endif %}</p>{% endif %}
+{% if org.mission %}<p><strong>Mission:</strong> {{ org.mission }}</p>{% endif %}
+
+<form method="post" action="{{ url_for('dashboard_org_generate', org_id=org.id) }}">
+  <button type="submit" class="button">Generate Needs Assessment Workbook</button>
+</form>
+<p class="submitted-at">This calls the Claude API and can take up to a minute or two.</p>
+
+<h2>Workbook Runs</h2>
+{% if runs %}
+<table class="dashboard-table">
+  <thead>
+    <tr><th>Created</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for run in runs %}
+    <tr>
+      <td>{{ run.created_at }}</td>
+      <td>{{ run.status }}</td>
+      <td>
+        {% if run.status == 'complete' %}
+        <a href="{{ url_for('dashboard_needs_run_download', run_id=run.id) }}">Download .xlsx</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No workbooks generated yet.</p>
+{% endif %}
+{% endblock %}

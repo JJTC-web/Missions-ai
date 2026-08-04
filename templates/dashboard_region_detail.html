@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ region.city }}, {{ region.state }} &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+  <h1>{{ region.city }}, {{ region.state }}{% if region.county %} ({{ region.county }} County){% endif %}</h1>
+  <a class="button" href="{{ url_for('dashboard_regions') }}">Back to Regions</a>
+</div>
+
+<h2>Region Stats</h2>
+{% if stat_error %}<p class="error">{{ stat_error }}</p>{% endif %}
+{% if stats %}
+<table class="dashboard-table">
+  <thead>
+    <tr><th>Metric</th><th>Value</th><th>Geography Level</th><th>Source</th><th>As Of</th></tr>
+  </thead>
+  <tbody>
+    {% for stat in stats %}
+    <tr>
+      <td>{{ stat.metric_name }}</td>
+      <td>{{ stat.value }}</td>
+      <td>{{ stat.geography_level or '—' }}</td>
+      <td>{{ stat.source or '—' }}</td>
+      <td>{{ stat.as_of_date or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No stats recorded for this region yet.</p>
+{% endif %}
+
+<form method="post" action="{{ url_for('dashboard_region_add_stat', region_id=region.id) }}">
+  <label for="metric_name">Metric name *</label>
+  <input type="text" id="metric_name" name="metric_name" placeholder="e.g. Poverty rate" required>
+
+  <label for="value">Value *</label>
+  <input type="text" id="value" name="value" placeholder="e.g. 33%+" required>
+
+  <label for="geography_level">Geography level</label>
+  <input type="text" id="geography_level" name="geography_level" placeholder="e.g. City, County">
+
+  <label for="source">Source</label>
+  <input type="text" id="source" name="source" placeholder="e.g. HUD Point-in-Time count">
+
+  <label for="as_of_date">As of date</label>
+  <input type="date" id="as_of_date" name="as_of_date">
+
+  <button type="submit" class="button">Add Stat</button>
+</form>
+
+<h2>Local Resource Directory</h2>
+{% if directory_error %}<p class="error">{{ directory_error }}</p>{% endif %}
+{% if directory %}
+<table class="dashboard-table">
+  <thead>
+    <tr><th>Organization</th><th>Address</th><th>Services</th><th>Population Served</th><th>Phone</th></tr>
+  </thead>
+  <tbody>
+    {% for entry in directory %}
+    <tr>
+      <td>{{ entry.name }}</td>
+      <td>{{ entry.address or '—' }}</td>
+      <td>{{ entry.services or '—' }}</td>
+      <td>{{ entry.population_served or '—' }}</td>
+      <td>{{ entry.phone or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No existing providers on file for this region yet.</p>
+{% endif %}
+
+<form method="post" action="{{ url_for('dashboard_region_add_resource', region_id=region.id) }}">
+  <label for="name">Organization name *</label>
+  <input type="text" id="name" name="name" required>
+
+  <label for="address">Address</label>
+  <input type="text" id="address" name="address">
+
+  <label for="services">Services</label>
+  <input type="text" id="services" name="services" placeholder="e.g. Emergency shelter">
+
+  <label for="population_served">Population served</label>
+  <input type="text" id="population_served" name="population_served" placeholder="e.g. Women & children">
+
+  <label for="phone">Phone</label>
+  <input type="text" id="phone" name="phone">
+
+  <button type="submit" class="button">Add to Directory</button>
+</form>
+{% endblock %}

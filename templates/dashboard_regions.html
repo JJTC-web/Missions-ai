@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Regions &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+  <h1>Regions</h1>
+  <a class="button" href="{{ url_for('dashboard') }}">Back to Submissions</a>
+</div>
+<p><a href="{{ url_for('dashboard_orgs') }}">Manage Organizations &rarr;</a></p>
+
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+{% if regions %}
+<table class="dashboard-table">
+  <thead>
+    <tr><th>City</th><th>County</th><th>State</th><th>CoC Region</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for region in regions %}
+    <tr>
+      <td>{{ region.city }}</td>
+      <td>{{ region.county or '—' }}</td>
+      <td>{{ region.state }}</td>
+      <td>{{ region.coc_region or '—' }}</td>
+      <td><a href="{{ url_for('dashboard_region_detail', region_id=region.id) }}">Manage</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No regions yet.</p>
+{% endif %}
+
+<h2>Add a Region</h2>
+<form method="post" action="{{ url_for('dashboard_regions_new') }}">
+  <label for="city">City *</label>
+  <input type="text" id="city" name="city" value="{{ form.get('city', '') }}" required>
+
+  <label for="county">County</label>
+  <input type="text" id="county" name="county" value="{{ form.get('county', '') }}">
+
+  <label for="state">State *</label>
+  <input type="text" id="state" name="state" value="{{ form.get('state', '') }}" required>
+
+  <label for="coc_region">CoC Region (optional)</label>
+  <input type="text" id="coc_region" name="coc_region" value="{{ form.get('coc_region', '') }}">
+
+  <button type="submit" class="button">Add Region</button>
+</form>
+{% endblock %}

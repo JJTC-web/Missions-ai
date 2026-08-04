@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Organizations &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+  <h1>Organizations</h1>
+  <a class="button" href="{{ url_for('dashboard') }}">Back to Submissions</a>
+</div>
+<p><a href="{{ url_for('dashboard_regions') }}">Manage Regions &rarr;</a></p>
+
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+{% if orgs %}
+<table class="dashboard-table">
+  <thead>
+    <tr><th>Name</th><th>Contact</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for org in orgs %}
+    <tr>
+      <td>{{ org.name }}</td>
+      <td>{{ org.contact_email or '—' }}</td>
+      <td><a href="{{ url_for('dashboard_org_detail', org_id=org.id) }}">Manage</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No organizations yet.</p>
+{% endif %}
+
+<h2>Add an Organization</h2>
+{% if not regions %}
+<p>Add a region first before creating an organization.</p>
+{% else %}
+<form method="post" action="{{ url_for('dashboard_orgs_new') }}">
+  <label for="name">Organization name *</label>
+  <input type="text" id="name" name="name" value="{{ form.get('name', '') }}" required>
+
+  <label for="region_id">Region *</label>
+  <select id="region_id" name="region_id" required>
+    <option value="">Select a region&hellip;</option>
+    {% for region in regions %}
+    <option value="{{ region.id }}">{{ region.city }}, {{ region.state }}</option>
+    {% endfor %}
+  </select>
+
+  <label for="contact_name">Contact name</label>
+  <input type="text" id="contact_name" name="contact_name" value="{{ form.get('contact_name', '') }}">
+
+  <label for="contact_email">Contact email</label>
+  <input type="email" id="contact_email" name="contact_email" value="{{ form.get('contact_email', '') }}">
+
+  <label for="mission">Mission (optional context for the AI generator)</label>
+  <input type="text" id="mission" name="mission" value="{{ form.get('mission', '') }}">
+
+  <button type="submit" class="button">Add Organization</button>
+</form>
+{% endif %}
+{% endblock %}

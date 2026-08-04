@@ -8,6 +8,13 @@
   </form>
 </div>
 
+<p>
+  <a href="{{ url_for('dashboard_orgs') }}">Organizations</a>
+  &nbsp;&middot;&nbsp;
+  <a href="{{ url_for('dashboard_regions') }}">Regions</a>
+  &nbsp;&mdash;&nbsp;Needs Assessment Workbooks
+</p>
+
 {% if submissions %}
 <table class="dashboard-table">
   <thead>

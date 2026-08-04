@@ -1,15 +1,17 @@
 import os
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from functools import wraps
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, abort, session, flash
+from flask import Flask, render_template, request, redirect, url_for, abort, session, flash, send_file
 
 import action_plan
 import db
 import email_notify
 import needs_assessment_db as ndb
+import needs_workbook_generator as workbook_gen
 import supabase_auth
 from assessment import SECTIONS, SECTION_KEYS, SCALE_LABELS
 from scoring import compute_score_breakdown
@@ -225,6 +227,220 @@ def dashboard_logout():
 def dashboard():
     submissions = db.list_submissions()
     return render_template("dashboard.html", submissions=submissions, admin_email=session.get("admin_email"))
+
+
+@app.route("/dashboard/regions")
+@require_admin
+def dashboard_regions():
+    regions = ndb.list_regions()
+    return render_template("dashboard_regions.html", regions=regions, error=None, form={})
+
+
+@app.route("/dashboard/regions/new", methods=["POST"])
+@require_admin
+def dashboard_regions_new():
+    city = request.form.get("city", "").strip()
+    county = request.form.get("county", "").strip()
+    state = request.form.get("state", "").strip()
+    coc_region = request.form.get("coc_region", "").strip()
+
+    if not city or not state:
+        regions = ndb.list_regions()
+        return render_template(
+            "dashboard_regions.html",
+            regions=regions,
+            error="City and state are required.",
+            form=request.form,
+        )
+
+    region_id = ndb.create_region(city, county or None, state, coc_region or None)
+    return redirect(url_for("dashboard_region_detail", region_id=region_id))
+
+
+@app.route("/dashboard/regions/<int:region_id>")
+@require_admin
+def dashboard_region_detail(region_id):
+    region = ndb.get_region(region_id)
+    if not region:
+        abort(404)
+    stats = ndb.list_region_stats(region_id)
+    directory = ndb.list_resource_directory(region_id)
+    return render_template(
+        "dashboard_region_detail.html",
+        region=region,
+        stats=stats,
+        directory=directory,
+        stat_error=None,
+        directory_error=None,
+    )
+
+
+@app.route("/dashboard/regions/<int:region_id>/stats", methods=["POST"])
+@require_admin
+def dashboard_region_add_stat(region_id):
+    region = ndb.get_region(region_id)
+    if not region:
+        abort(404)
+
+    metric_name = request.form.get("metric_name", "").strip()
+    value = request.form.get("value", "").strip()
+    geography_level = request.form.get("geography_level", "").strip()
+    source = request.form.get("source", "").strip()
+    as_of_date = request.form.get("as_of_date", "").strip()
+
+    if not metric_name or not value:
+        stats = ndb.list_region_stats(region_id)
+        directory = ndb.list_resource_directory(region_id)
+        return render_template(
+            "dashboard_region_detail.html",
+            region=region,
+            stats=stats,
+            directory=directory,
+            stat_error="Metric name and value are required.",
+            directory_error=None,
+        )
+
+    ndb.add_region_stat(
+        region_id, metric_name, value,
+        geography_level=geography_level or None,
+        source=source or None,
+        as_of_date=as_of_date or None,
+    )
+    return redirect(url_for("dashboard_region_detail", region_id=region_id))
+
+
+@app.route("/dashboard/regions/<int:region_id>/resources", methods=["POST"])
+@require_admin
+def dashboard_region_add_resource(region_id):
+    region = ndb.get_region(region_id)
+    if not region:
+        abort(404)
+
+    name = request.form.get("name", "").strip()
+    address = request.form.get("address", "").strip()
+    services = request.form.get("services", "").strip()
+    population_served = request.form.get("population_served", "").strip()
+    phone = request.form.get("phone", "").strip()
+
+    if not name:
+        stats = ndb.list_region_stats(region_id)
+        directory = ndb.list_resource_directory(region_id)
+        return render_template(
+            "dashboard_region_detail.html",
+            region=region,
+            stats=stats,
+            directory=directory,
+            stat_error=None,
+            directory_error="Organization name is required.",
+        )
+
+    ndb.add_resource_directory_entry(
+        region_id, name,
+        address=address or None,
+        services=services or None,
+        population_served=population_served or None,
+        phone=phone or None,
+    )
+    return redirect(url_for("dashboard_region_detail", region_id=region_id))
+
+
+@app.route("/dashboard/orgs")
+@require_admin
+def dashboard_orgs():
+    orgs = ndb.list_orgs()
+    regions = ndb.list_regions()
+    return render_template("dashboard_orgs.html", orgs=orgs, regions=regions, error=None, form={})
+
+
+@app.route("/dashboard/orgs/new", methods=["POST"])
+@require_admin
+def dashboard_orgs_new():
+    name = request.form.get("name", "").strip()
+    region_id = request.form.get("region_id", "").strip()
+    contact_name = request.form.get("contact_name", "").strip()
+    contact_email = request.form.get("contact_email", "").strip()
+    mission = request.form.get("mission", "").strip()
+
+    if not name or not region_id:
+        orgs = ndb.list_orgs()
+        regions = ndb.list_regions()
+        return render_template(
+            "dashboard_orgs.html",
+            orgs=orgs,
+            regions=regions,
+            error="Organization name and region are required.",
+            form=request.form,
+        )
+
+    org_id = ndb.create_org(
+        name, int(region_id),
+        contact_name=contact_name or None,
+        contact_email=contact_email or None,
+        mission=mission or None,
+    )
+    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+
+@app.route("/dashboard/orgs/<int:org_id>")
+@require_admin
+def dashboard_org_detail(org_id):
+    org = ndb.get_org(org_id)
+    if not org:
+        abort(404)
+    region = ndb.get_region(org["region_id"])
+    runs = ndb.list_needs_runs_for_org(org_id)
+    return render_template("dashboard_org_detail.html", org=org, region=region, runs=runs, error=None)
+
+
+@app.route("/dashboard/orgs/<int:org_id>/generate", methods=["POST"])
+@require_admin
+def dashboard_org_generate(org_id):
+    org = ndb.get_org(org_id)
+    if not org:
+        abort(404)
+    region = ndb.get_region(org["region_id"])
+    if not region:
+        flash("This org's region no longer exists.")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    stats = ndb.list_region_stats(region["id"])
+    directory = ndb.list_resource_directory(region["id"])
+
+    run_id = ndb.create_needs_run(org_id, region["id"])
+    try:
+        content = workbook_gen.generate_workbook_content(org, region, stats, directory)
+        ndb.complete_needs_run(
+            run_id, content,
+            workbook_url=url_for("dashboard_needs_run_download", run_id=run_id),
+        )
+    except Exception as e:
+        app.logger.error("Needs Assessment Workbook generation failed: %s", e)
+        ndb.fail_needs_run(run_id, str(e))
+        flash(f"Workbook generation failed: {e}")
+
+    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+
+@app.route("/dashboard/needs-runs/<int:run_id>/download.xlsx")
+@require_admin
+def dashboard_needs_run_download(run_id):
+    run = ndb.get_needs_run(run_id)
+    if not run or run["status"] != "complete" or not run["workbook_json"]:
+        abort(404)
+
+    org = ndb.get_org(run["org_id"])
+    region = ndb.get_region(run["region_id"])
+    stats = ndb.list_region_stats(run["region_id"])
+    directory = ndb.list_resource_directory(run["region_id"])
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_path = os.path.join(tmpdir, f"needs-assessment-{run_id}.xlsx")
+        workbook_gen.build_workbook_xlsx(org, region, stats, directory, run["workbook_json"], output_path)
+        return send_file(
+            output_path,
+            as_attachment=True,
+            download_name=f"MissionOS-Needs-Assessment-{region['city']}-{run_id}.xlsx",
+        )
 
 
 _SAMPLE_SUBMISSION = {
