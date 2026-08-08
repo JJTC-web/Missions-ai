@@ -17,6 +17,21 @@
 {% if org.contact_name %}<p><strong>Contact:</strong> {{ org.contact_name }}{% if org.contact_email %} ({{ org.contact_email }}){% endif %}</p>{% endif %}
 {% if org.mission %}<p><strong>Mission:</strong> {{ org.mission }}</p>{% endif %}
 
+<p>
+  <strong>Subscription Tier:</strong>
+  {{ {'free': 'Free', 'tier1': 'Tier 1', 'tier2': 'Tier 2', 'tier3': 'Tier 3'}.get(org.tier, org.tier) }}
+</p>
+<form method="post" action="{{ url_for('dashboard_org_set_tier', org_id=org.id) }}">
+  <label for="tier">Set tier (tracked manually &mdash; no billing is wired up yet)</label>
+  <select id="tier" name="tier">
+    <option value="free" {% if org.tier == 'free' %}selected{% endif %}>Free</option>
+    <option value="tier1" {% if org.tier == 'tier1' %}selected{% endif %}>Tier 1 ($19.95/mo)</option>
+    <option value="tier2" {% if org.tier == 'tier2' %}selected{% endif %}>Tier 2 ($49.95/mo)</option>
+    <option value="tier3" {% if org.tier == 'tier3' %}selected{% endif %}>Tier 3 ($129.95/mo)</option>
+  </select>
+  <button type="submit" class="button">Update Tier</button>
+</form>
+
 <form method="post" action="{{ url_for('dashboard_org_generate', org_id=org.id) }}">
   <button type="submit" class="button">Generate Needs Assessment Workbook</button>
 </form>

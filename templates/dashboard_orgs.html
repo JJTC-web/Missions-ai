@@ -12,13 +12,14 @@
 {% if orgs %}
 <table class="dashboard-table">
   <thead>
-    <tr><th>Name</th><th>Contact</th><th></th></tr>
+    <tr><th>Name</th><th>Contact</th><th>Tier</th><th></th></tr>
   </thead>
   <tbody>
     {% for org in orgs %}
     <tr>
       <td>{{ org.name }}</td>
       <td>{{ org.contact_email or '—' }}</td>
+      <td>{{ {'free': 'Free', 'tier1': 'Tier 1', 'tier2': 'Tier 2', 'tier3': 'Tier 3'}.get(org.tier, org.tier) }}</td>
       <td><a href="{{ url_for('dashboard_org_detail', org_id=org.id) }}">Manage</a></td>
     </tr>
     {% endfor %}

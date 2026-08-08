@@ -545,6 +545,22 @@ def dashboard_org_funding_delete(org_id, resource_id):
     return redirect(url_for("dashboard_org_detail", org_id=org_id))
 
 
+@app.route("/dashboard/orgs/<int:org_id>/tier", methods=["POST"])
+@require_admin
+def dashboard_org_set_tier(org_id):
+    org = ndb.get_org(org_id)
+    if not org:
+        abort(404)
+    tier = request.form.get("tier", "").strip()
+    try:
+        ndb.set_org_tier(org_id, tier)
+    except ValueError:
+        flash("Invalid tier selected.")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+    flash(f"Tier updated to {tier}.")
+    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+
 @app.route("/dashboard/orgs/<int:org_id>/generate", methods=["POST"])
 @require_admin
 def dashboard_org_generate(org_id):

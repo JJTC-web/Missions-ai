@@ -43,6 +43,7 @@ def init_needs_assessment_tables():
         )
         """
     )
+    _add_column_if_missing(cur, "orgs", "tier", "TEXT DEFAULT 'free'")
 
     cur.execute(
         f"""
@@ -208,7 +209,7 @@ def list_orgs():
     conn = db.get_db()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, name, region_id, contact_name, contact_email, mission FROM orgs ORDER BY name"
+        "SELECT id, name, region_id, contact_name, contact_email, mission, tier FROM orgs ORDER BY name"
     )
     rows = cur.fetchall()
     cur.close()
@@ -221,6 +222,7 @@ def list_orgs():
             "contact_name": r[3],
             "contact_email": r[4],
             "mission": r[5],
+            "tier": r[6] or "free",
         }
         for r in rows
     ]
@@ -230,7 +232,7 @@ def get_org(org_id):
     conn = db.get_db()
     cur = conn.cursor()
     cur.execute(
-        f"SELECT id, name, region_id, contact_name, contact_email, mission FROM orgs WHERE id = {P}",
+        f"SELECT id, name, region_id, contact_name, contact_email, mission, tier FROM orgs WHERE id = {P}",
         (org_id,),
     )
     row = cur.fetchone()
@@ -245,7 +247,22 @@ def get_org(org_id):
         "contact_name": row[3],
         "contact_email": row[4],
         "mission": row[5],
+        "tier": row[6] or "free",
     }
+
+
+VALID_TIERS = ("free", "tier1", "tier2", "tier3")
+
+
+def set_org_tier(org_id, tier):
+    if tier not in VALID_TIERS:
+        raise ValueError(f"Invalid tier: {tier}")
+    conn = db.get_db()
+    cur = conn.cursor()
+    cur.execute(f"UPDATE orgs SET tier = {P} WHERE id = {P}", (tier, org_id))
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 # --- region_stats --------------------------------------------------------
