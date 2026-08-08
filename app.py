@@ -12,6 +12,7 @@ import action_plan
 import db
 import email_notify
 import needs_assessment_db as ndb
+import tiers
 import needs_workbook_generator as workbook_gen
 import region_research
 import supabase_auth
@@ -491,6 +492,9 @@ def dashboard_orgs_new():
     return redirect(url_for("dashboard_org_detail", org_id=org_id))
 
 
+FUNDING_REQUIRED_TIER = "tier3"
+
+
 @app.route("/dashboard/orgs/<int:org_id>")
 @require_admin
 def dashboard_org_detail(org_id):
@@ -504,6 +508,8 @@ def dashboard_org_detail(org_id):
         "dashboard_org_detail.html",
         org=org, region=region, runs=runs,
         funding_resources=funding_resources,
+        funding_tier_ok=tiers.tier_meets(org["tier"], FUNDING_REQUIRED_TIER),
+        funding_required_tier_label=tiers.TIER_LABELS[FUNDING_REQUIRED_TIER],
         error=None, funding_import_error=None,
     )
 
@@ -527,6 +533,8 @@ def dashboard_org_funding_import(org_id):
             "dashboard_org_detail.html",
             org=org, region=region, runs=runs,
             funding_resources=funding_resources,
+            funding_tier_ok=tiers.tier_meets(org["tier"], FUNDING_REQUIRED_TIER),
+            funding_required_tier_label=tiers.TIER_LABELS[FUNDING_REQUIRED_TIER],
             error=None, funding_import_error=f"Could not import: {e}",
         )
 
@@ -552,13 +560,21 @@ def dashboard_org_set_tier(org_id):
     if not org:
         abort(404)
     tier = request.form.get("tier", "").strip()
+    next_url = _safe_next_url(request.form.get("next", ""))
     try:
         ndb.set_org_tier(org_id, tier)
     except ValueError:
         flash("Invalid tier selected.")
-        return redirect(url_for("dashboard_org_detail", org_id=org_id))
-    flash(f"Tier updated to {tier}.")
-    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+        return redirect(next_url)
+    flash(f"{org['name']} tier updated to {tiers.TIER_LABELS.get(tier, tier)}.")
+    return redirect(next_url)
+
+
+@app.route("/dashboard/tiers")
+@require_admin
+def dashboard_tiers():
+    orgs = ndb.list_orgs()
+    return render_template("dashboard_tiers.html", orgs=orgs, tier_labels=tiers.TIER_LABELS, tier_order=tiers.TIER_ORDER)
 
 
 @app.route("/dashboard/orgs/<int:org_id>/generate", methods=["POST"])

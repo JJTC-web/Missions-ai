@@ -22,6 +22,7 @@
   {{ {'free': 'Free', 'tier1': 'Tier 1', 'tier2': 'Tier 2', 'tier3': 'Tier 3'}.get(org.tier, org.tier) }}
 </p>
 <form method="post" action="{{ url_for('dashboard_org_set_tier', org_id=org.id) }}">
+  <input type="hidden" name="next" value="{{ url_for('dashboard_org_detail', org_id=org.id) }}">
   <label for="tier">Set tier (tracked manually &mdash; no billing is wired up yet)</label>
   <select id="tier" name="tier">
     <option value="free" {% if org.tier == 'free' %}selected{% endif %}>Free</option>
@@ -61,7 +62,18 @@
 <p>No workbooks generated yet.</p>
 {% endif %}
 
-<h2>Funding Opportunities</h2>
+<h2>
+  Funding Opportunities
+  {% if funding_tier_ok %}
+  <span class="tier-badge tier-badge-unlocked">Unlocked for this org ({{ funding_required_tier_label }}+)</span>
+  {% else %}
+  <span class="tier-badge tier-badge-locked">Requires {{ funding_required_tier_label }} &mdash; locked for this org</span>
+  {% endif %}
+</h2>
+<p class="funding-meta">
+  As admin you always see and manage this content. The badge above previews what this
+  org itself would see once org-facing accounts exist.
+</p>
 
 {% if funding_resources %}
 {% set categories = funding_resources | map(attribute='category_label') | unique | list %}

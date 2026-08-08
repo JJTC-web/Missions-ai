@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Tiers &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+  <h1>Tiers</h1>
+  <a class="button" href="{{ url_for('dashboard_orgs') }}">Back to Organizations</a>
+</div>
+<p>Move any org between tiers here without opening its detail page. Tiers are tracked manually &mdash; there's no billing integration yet.</p>
+
+{% if orgs %}
+<table class="dashboard-table">
+  <thead>
+    <tr><th>Organization</th><th>Current Tier</th><th>Change To</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for org in orgs %}
+    <tr>
+      <td><a href="{{ url_for('dashboard_org_detail', org_id=org.id) }}">{{ org.name }}</a></td>
+      <td>{{ tier_labels.get(org.tier, org.tier) }}</td>
+      <td>
+        <form method="post" action="{{ url_for('dashboard_org_set_tier', org_id=org.id) }}" style="display:flex;gap:0.5rem;align-items:center;">
+          <input type="hidden" name="next" value="{{ url_for('dashboard_tiers') }}">
+          <select name="tier">
+            {% for t in tier_order %}
+            <option value="{{ t }}" {% if org.tier == t %}selected{% endif %}>{{ tier_labels[t] }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="button">Update</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No organizations yet.</p>
+{% endif %}
+{% endblock %}
