@@ -334,3 +334,34 @@ fieldset.question legend {
   font-size: 0.85rem;
   white-space: nowrap;
 }
+
+.funding-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.funding-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--card-bg);
+}
+
+.funding-card h4 {
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+}
+
+.funding-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0.15rem 0;
+}
+
+.funding-status {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 0.4rem 0;
+}

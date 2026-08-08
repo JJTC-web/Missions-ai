@@ -100,6 +100,34 @@ def init_needs_assessment_tables():
         """
     )
 
+    cur.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS funding_resources (
+            id {ID_TYPE},
+            org_id INTEGER REFERENCES orgs(id),
+            external_id TEXT,
+            title TEXT NOT NULL,
+            funder TEXT,
+            category TEXT,
+            category_label TEXT,
+            region TEXT,
+            amount_range TEXT,
+            window_opens DATE,
+            window_closes DATE,
+            window_notes TEXT,
+            funding_pillars_json TEXT,
+            status TEXT,
+            description TEXT,
+            draft_file TEXT,
+            source_url TEXT,
+            placeholders_json TEXT,
+            eligibility_note TEXT,
+            required_tier TEXT,
+            created_at {TIMESTAMP_DEFAULT}
+        )
+        """
+    )
+
     conn.commit()
     cur.close()
     conn.close()
@@ -429,6 +457,136 @@ def delete_research_draft(draft_id):
     conn.commit()
     cur.close()
     conn.close()
+
+
+# --- funding_resources -------------------------------------------------
+
+def import_funding_resources(org_id, data):
+    """Upserts a Guided Resources JSON export's resources for one org, keyed
+    by (org_id, external_id). Returns (created_count, updated_count).
+    """
+    category_labels = {c["id"]: c.get("label", c["id"]) for c in data.get("categories", [])}
+
+    conn = db.get_db()
+    cur = conn.cursor()
+    created = 0
+    updated = 0
+    for r in data.get("resources", []):
+        external_id = r["id"]
+        window = r.get("applicationWindow") or {}
+        fields = (
+            r.get("title"),
+            r.get("funder"),
+            r.get("category"),
+            category_labels.get(r.get("category"), r.get("category")),
+            r.get("region"),
+            r.get("amountRange"),
+            window.get("opens"),
+            window.get("closes"),
+            window.get("notes"),
+            json.dumps(r.get("fundingPillars", [])),
+            r.get("status"),
+            r.get("description"),
+            r.get("draftFile"),
+            r.get("sourceUrl"),
+            json.dumps(r.get("placeholders", [])),
+            r.get("eligibilityNote"),
+            r.get("requiredTier"),
+        )
+
+        cur.execute(
+            f"SELECT id FROM funding_resources WHERE org_id = {P} AND external_id = {P}",
+            (org_id, external_id),
+        )
+        existing = cur.fetchone()
+
+        if existing:
+            cur.execute(
+                f"""
+                UPDATE funding_resources SET
+                    title = {P}, funder = {P}, category = {P}, category_label = {P},
+                    region = {P}, amount_range = {P}, window_opens = {P}, window_closes = {P},
+                    window_notes = {P}, funding_pillars_json = {P}, status = {P}, description = {P},
+                    draft_file = {P}, source_url = {P}, placeholders_json = {P}, eligibility_note = {P},
+                    required_tier = {P}
+                WHERE id = {P}
+                """,
+                fields + (existing[0],),
+            )
+            updated += 1
+        else:
+            cur.execute(
+                f"""
+                INSERT INTO funding_resources (
+                    org_id, external_id, title, funder, category, category_label,
+                    region, amount_range, window_opens, window_closes, window_notes,
+                    funding_pillars_json, status, description, draft_file, source_url,
+                    placeholders_json, eligibility_note, required_tier
+                ) VALUES ({P}, {P}, {P}, {P}, {P}, {P}, {P}, {P}, {P}, {P}, {P}, {P}, {P}, {P}, {P}, {P}, {P}, {P}, {P})
+                """,
+                (org_id, external_id) + fields,
+            )
+            created += 1
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return created, updated
+
+
+def list_funding_resources(org_id):
+    conn = db.get_db()
+    cur = conn.cursor()
+    cur.execute(
+        f"""
+        SELECT id, title, funder, category, category_label, region, amount_range,
+               window_opens, window_closes, window_notes, funding_pillars_json, status,
+               description, draft_file, source_url, placeholders_json, eligibility_note,
+               required_tier
+        FROM funding_resources WHERE org_id = {P} ORDER BY category_label, title
+        """,
+        (org_id,),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [
+        {
+            "id": r[0],
+            "title": r[1],
+            "funder": r[2],
+            "category": r[3],
+            "category_label": r[4],
+            "region": r[5],
+            "amount_range": r[6],
+            "window_opens": r[7],
+            "window_closes": r[8],
+            "window_notes": r[9],
+            "funding_pillars": json.loads(r[10]) if r[10] else [],
+            "status": r[11],
+            "description": r[12],
+            "draft_file": r[13],
+            "source_url": r[14],
+            "placeholders": json.loads(r[15]) if r[15] else [],
+            "eligibility_note": r[16],
+            "required_tier": r[17],
+        }
+        for r in rows
+    ]
+
+
+def delete_funding_resource(resource_id, org_id):
+    conn = db.get_db()
+    cur = conn.cursor()
+    cur.execute(
+        f"DELETE FROM funding_resources WHERE id = {P} AND org_id = {P}",
+        (resource_id, org_id),
+    )
+    conn.commit()
+    deleted = cur.rowcount > 0
+    cur.close()
+    conn.close()
+    return deleted
 
 
 # --- helpers -----------------------------------------------------------

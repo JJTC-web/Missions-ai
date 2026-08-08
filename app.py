@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import uuid
@@ -498,7 +499,50 @@ def dashboard_org_detail(org_id):
         abort(404)
     region = ndb.get_region(org["region_id"])
     runs = ndb.list_needs_runs_for_org(org_id)
-    return render_template("dashboard_org_detail.html", org=org, region=region, runs=runs, error=None)
+    funding_resources = ndb.list_funding_resources(org_id)
+    return render_template(
+        "dashboard_org_detail.html",
+        org=org, region=region, runs=runs,
+        funding_resources=funding_resources,
+        error=None, funding_import_error=None,
+    )
+
+
+@app.route("/dashboard/orgs/<int:org_id>/funding/import", methods=["POST"])
+@require_admin
+def dashboard_org_funding_import(org_id):
+    org = ndb.get_org(org_id)
+    if not org:
+        abort(404)
+
+    raw = request.form.get("resources_json", "").strip()
+    try:
+        data = json.loads(raw)
+        created, updated = ndb.import_funding_resources(org_id, data)
+    except Exception as e:
+        region = ndb.get_region(org["region_id"])
+        runs = ndb.list_needs_runs_for_org(org_id)
+        funding_resources = ndb.list_funding_resources(org_id)
+        return render_template(
+            "dashboard_org_detail.html",
+            org=org, region=region, runs=runs,
+            funding_resources=funding_resources,
+            error=None, funding_import_error=f"Could not import: {e}",
+        )
+
+    flash(f"Imported funding resources: {created} added, {updated} updated.")
+    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+
+@app.route("/dashboard/orgs/<int:org_id>/funding/<int:resource_id>/delete", methods=["POST"])
+@require_admin
+def dashboard_org_funding_delete(org_id, resource_id):
+    org = ndb.get_org(org_id)
+    if not org:
+        abort(404)
+    ndb.delete_funding_resource(resource_id, org_id)
+    flash("Funding resource removed.")
+    return redirect(url_for("dashboard_org_detail", org_id=org_id))
 
 
 @app.route("/dashboard/orgs/<int:org_id>/generate", methods=["POST"])

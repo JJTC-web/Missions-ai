@@ -45,4 +45,46 @@
 {% else %}
 <p>No workbooks generated yet.</p>
 {% endif %}
+
+<h2>Funding Opportunities</h2>
+
+{% if funding_resources %}
+{% set categories = funding_resources | map(attribute='category_label') | unique | list %}
+{% for cat in categories %}
+<h3>{{ cat }}</h3>
+<div class="funding-cards">
+  {% for r in funding_resources if r.category_label == cat %}
+  <div class="funding-card">
+    <h4>{{ r.title }}</h4>
+    <p class="funding-meta"><strong>{{ r.funder }}</strong>{% if r.region %} &middot; {{ r.region }}{% endif %}</p>
+    {% if r.amount_range %}<p class="funding-meta">{{ r.amount_range }}</p>{% endif %}
+    {% if r.window_opens or r.window_closes %}
+    <p class="funding-meta">Window: {{ r.window_opens or '?' }} &ndash; {{ r.window_closes or '?' }}</p>
+    {% endif %}
+    {% if r.window_notes %}<p class="funding-meta">{{ r.window_notes }}</p>{% endif %}
+    <p class="funding-status">Status: {{ r.status or '—' }}{% if r.required_tier %} &middot; Requires: {{ r.required_tier }}{% endif %}</p>
+    {% if r.description %}<p>{{ r.description }}</p>{% endif %}
+    {% if r.eligibility_note %}<p class="funding-meta"><em>{{ r.eligibility_note }}</em></p>{% endif %}
+    {% if r.funding_pillars %}<p class="funding-meta">Pillars: {{ r.funding_pillars | join(', ') }}</p>{% endif %}
+    {% if r.placeholders %}<p class="funding-meta">Fields to confirm: {{ r.placeholders | join(', ') }}</p>{% endif %}
+    {% if r.draft_file %}<p class="funding-meta">Draft file: {{ r.draft_file }}</p>{% endif %}
+    {% if r.source_url %}<p><a href="{{ r.source_url }}" target="_blank" rel="noopener">Source &rarr;</a></p>{% endif %}
+    <form method="post" action="{{ url_for('dashboard_org_funding_delete', org_id=org.id, resource_id=r.id) }}">
+      <button type="submit" class="button button-secondary">Remove</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+{% else %}
+<p>No funding resources loaded for this org yet.</p>
+{% endif %}
+
+<h3>Import Guided Resources JSON</h3>
+{% if funding_import_error %}<p class="error">{{ funding_import_error }}</p>{% endif %}
+<form method="post" action="{{ url_for('dashboard_org_funding_import', org_id=org.id) }}">
+  <label for="resources_json">Paste the Guided Resources JSON export</label>
+  <textarea id="resources_json" name="resources_json" rows="10" style="width:100%;font-family:monospace;" required></textarea>
+  <button type="submit" class="button">Import</button>
+</form>
 {% endblock %}
