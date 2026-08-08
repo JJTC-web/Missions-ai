@@ -10,6 +10,13 @@
   <header class="site-header">
     <a class="brand" href="{{ url_for('home') }}">MissionOS AI</a>
   </header>
+  {% if session.get('is_admin') %}
+  <nav class="admin-nav">
+    <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">Submissions</a>
+    <a href="{{ url_for('dashboard_orgs') }}" class="{% if request.endpoint in ('dashboard_orgs', 'dashboard_org_detail') %}active{% endif %}">Organizations</a>
+    <a href="{{ url_for('dashboard_regions') }}" class="{% if request.endpoint in ('dashboard_regions', 'dashboard_region_detail') %}active{% endif %}">Regions</a>
+  </nav>
+  {% endif %}
   <main class="container">
     {% with messages = get_flashed_messages() %}
       {% if messages %}
