@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Resource Library &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+  <h1>Resource Library</h1>
+  <a class="button" href="{{ url_for('dashboard_orgs') }}">Back to Organizations</a>
+</div>
+<p>
+  Downloadable templates and guides, gated by subscription tier. As admin
+  you can always download everything below; the tier badge previews what
+  an org at that tier would see once org-facing accounts exist.
+</p>
+
+<div class="funding-cards">
+  {% for r in resources %}
+  <div class="funding-card">
+    <h4>
+      {{ r.title }}
+      <span class="tier-badge tier-badge-locked">Requires {{ tier_labels[r.required_tier] }}+</span>
+    </h4>
+    <p>{{ r.description }}</p>
+    <p>
+      <a class="button" href="{{ url_for('dashboard_resource_library_download', resource_id=r.id) }}">Download</a>
+    </p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
