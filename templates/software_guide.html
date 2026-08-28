@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Free & Discounted Software Guide &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Free & Discounted Software for Nonprofits</h1>
+  <p class="lede">
+    Many software providers offer free or deeply discounted plans specifically
+    for eligible 501(c)(3) organizations. These are each provider's own program,
+    not a JJTC-negotiated deal &mdash; available to every MissionOS AI user, at
+    every tier.
+  </p>
+</section>
+
+{% for group in software %}
+<h2>{{ group.category }}</h2>
+<ul class="breakdown-list">
+  {% for tool in group.tools %}
+  <li class="breakdown-item">
+    <span class="breakdown-title">{{ tool.name }}</span>
+    <span class="breakdown-weight">{{ tool.note }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endfor %}
+
+<p class="funding-meta">
+  Eligibility requirements and offer details are set by each provider and can
+  change &mdash; always verify current terms directly with them before applying.
+</p>
+
+<a class="button" href="{{ url_for('home') }}">Back to home</a>
+{% endblock %}
