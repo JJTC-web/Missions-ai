@@ -414,3 +414,25 @@ fieldset.question legend {
   background: #f5e6e5;
   color: var(--error);
 }
+
+.milestone-banner {
+  position: fixed;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-1rem);
+  background: var(--accent-dark);
+  color: #ffffff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 1000;
+}
+
+.milestone-banner-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
