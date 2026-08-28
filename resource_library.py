@@ -17,7 +17,7 @@ RESOURCES = [
             "and follow-up dates."
         ),
         "filename": "2026_Grant_Tracker_Template.xlsx",
-        "required_tier": "tier2",
+        "required_tier": "tier1",
     },
     {
         "id": "grants-for-women-guide",

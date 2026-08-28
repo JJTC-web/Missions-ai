@@ -76,6 +76,12 @@ body {
   font-size: 0.85rem;
 }
 
+.copyright-notice {
+  font-size: 0.75rem;
+  max-width: 40rem;
+  margin: 0.5rem auto 0;
+}
+
 h1 {
   font-size: 1.9rem;
   margin-bottom: 0.75rem;
@@ -114,6 +120,16 @@ h2 {
 
 .button:hover {
   background: var(--accent-dark);
+}
+
+.button-secondary {
+  background: transparent;
+  color: var(--accent-dark);
+  border: 1px solid var(--border);
+}
+
+.button-secondary:hover {
+  background: var(--card-bg);
 }
 
 form {
@@ -413,4 +429,46 @@ fieldset.question legend {
 .tier-badge-locked {
   background: #f5e6e5;
   color: var(--error);
+}
+
+.milestone-banner {
+  position: fixed;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-1rem);
+  background: var(--accent-dark);
+  color: #ffffff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 1000;
+}
+
+.milestone-banner-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.results-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.results-actions .button {
+  margin-top: 0;
+}
+
+@media print {
+  .site-header,
+  .admin-nav,
+  .site-footer,
+  .no-print {
+    display: none !important;
+  }
 }

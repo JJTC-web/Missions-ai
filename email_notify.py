@@ -81,7 +81,7 @@ def _action_plan_html(submission):
     return "".join(sections)
 
 
-def _results_email_html(submission):
+def _results_email_html(submission, results_url):
     return f"""
     <h1>{submission['org_name']}&rsquo;s Readiness Snapshot</h1>
     <p><strong>Overall Readiness Score:</strong> {submission['score']}/100</p>
@@ -95,6 +95,17 @@ def _results_email_html(submission):
     <h2>AI-Generated Action Plan</h2>
     {_action_plan_html(submission)}
 
+    <p>
+      <a href="{results_url}" style="display:inline-block;padding:10px 18px;background:#2f6f4f;
+        color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">
+        View &amp; check off your action items
+      </a>
+    </p>
+    <p style="color:#5b6470;font-size:0.85rem;">
+      Bookmark that link &mdash; it's how you'll get back to check items off as you
+      complete them.
+    </p>
+
     <p style="color:#5b6470;font-size:0.85rem;">
       &mdash; MissionOS AI, helping nonprofits build stronger organizations
       before they build bigger programs.
@@ -102,14 +113,14 @@ def _results_email_html(submission):
     """
 
 
-def send_results_email(submission):
+def send_results_email(submission, results_url):
     """Email the full results (score, breakdown, gaps, action plan) to the submitter."""
     if not submission.get("contact_email"):
         return
     send_email(
         to=submission["contact_email"],
         subject=f"Your MissionOS AI Readiness Snapshot ({submission['score']}/100)",
-        html=_results_email_html(submission),
+        html=_results_email_html(submission, results_url),
     )
 
 

@@ -29,9 +29,62 @@ db.init_db()
 ndb.init_needs_assessment_tables()
 
 
+BOOKING_URL = "https://calendly.com/jjtcinfo/missionos-ai-meeting"
+
+TIER_PRICING = {
+    "free": "$0",
+    "tier1": "$19.95/mo",
+    "tier2": "$49.95/mo",
+    "tier3": "$129.95/mo",
+}
+
+TIER_FEATURES = {
+    "free": [
+        "Organizational Health Assessment with results",
+    ],
+    "tier1": [
+        "2026 Grant Tracker template",
+        "A 15-minute 1:1 check-in with Lady Emily once a quarter",
+    ],
+    "tier2": [
+        "2026 Grant Tracker template",
+        "Grants for Women — Funding Guide",
+        "A 30-minute 1:1 check-in with Lady Emily once a quarter",
+        "15% off bookkeeping reviews when connected to Wave, QBO, or Relay",
+    ],
+    "tier3": [
+        "2026 Grant Tracker template",
+        "Grants for Women — Funding Guide",
+        "Grant Budget Template",
+        "Church Funding Toolkit",
+        "Curated Funding Opportunities, matched to your org",
+        "A 30-minute 1:1 check-in with Lady Emily every month",
+        "15% off bookkeeping reviews when connected to Wave, QBO, or Relay",
+    ],
+}
+
+TIER_FOOTNOTE = (
+    "All tiers include the option to onboard with Relay for banking. "
+    "Upgrade, downgrade, or cancel any time."
+)
+
+
 @app.route("/")
 def home():
     return render_template("home.html")
+
+
+@app.route("/tiers")
+def tiers_page():
+    return render_template(
+        "tiers.html",
+        tier_order=tiers.TIER_ORDER,
+        tier_labels=tiers.TIER_LABELS,
+        tier_pricing=TIER_PRICING,
+        tier_features=TIER_FEATURES,
+        tier_footnote=TIER_FOOTNOTE,
+        booking_url=BOOKING_URL,
+    )
 
 
 @app.route("/assessment/start", methods=["GET", "POST"])
@@ -157,19 +210,20 @@ def assessment_submit():
         "action_plan_error": plan_error,
     }
 
+    results_url = url_for("assessment_results", submission_id=submission_id, _external=True)
+
     try:
-        email_notify.send_results_email(submission)
+        email_notify.send_results_email(submission, results_url)
     except Exception as e:
         app.logger.error("Failed to send results email to submitter: %s", e)
 
     try:
-        results_url = url_for("assessment_results", submission_id=submission_id, _external=True)
         email_notify.send_admin_notification(submission, results_url)
     except Exception as e:
         app.logger.error("Failed to send admin notification email: %s", e)
 
     session.pop("draft", None)
-    return redirect(url_for("assessment_results", submission_id=submission_id))
+    return redirect(url_for("assessment_results", submission_id=submission_id, milestone="new"))
 
 
 @app.route("/assessment/results/<submission_id>")
@@ -178,15 +232,38 @@ def assessment_results(submission_id):
     if not submission:
         abort(404)
     action_items = db.list_action_items(submission_id)
-    return render_template("results.html", submission=submission, action_items=action_items)
+    return render_template(
+        "results.html",
+        submission=submission,
+        action_items=action_items,
+        milestone=request.args.get("milestone"),
+        booking_url=BOOKING_URL,
+    )
 
 
 @app.route("/assessment/results/<submission_id>/action-items/<int:item_id>/toggle", methods=["POST"])
 def assessment_toggle_action_item(submission_id, item_id):
     if not db.get_submission(submission_id):
         abort(404)
+
+    items_before = db.list_action_items(submission_id)
+    total = len(items_before)
+    completed_before = sum(1 for item in items_before if item["is_complete"])
+
     db.toggle_action_item(item_id, submission_id)
-    return redirect(url_for("assessment_results", submission_id=submission_id))
+
+    completed_after = sum(
+        1 for item in db.list_action_items(submission_id) if item["is_complete"]
+    )
+
+    milestone = None
+    if total and completed_after > completed_before:
+        if completed_after == total:
+            milestone = "done"
+        elif completed_before < (total / 2) <= completed_after:
+            milestone = "half"
+
+    return redirect(url_for("assessment_results", submission_id=submission_id, milestone=milestone))
 
 
 def _safe_next_url(next_url):
@@ -709,15 +786,16 @@ def test_email():
     to_email = request.args.get("to") or email_notify.ADMIN_NOTIFICATION_EMAIL
     sample = dict(_SAMPLE_SUBMISSION, contact_email=to_email)
 
+    results_url = url_for("home", _external=True)
+
     results = {}
     try:
-        email_notify.send_results_email(sample)
+        email_notify.send_results_email(sample, results_url)
         results["submitter_results_email"] = f"sent to {to_email}"
     except Exception as e:
         results["submitter_results_email"] = f"failed: {e}"
 
     try:
-        results_url = url_for("home", _external=True)
         email_notify.send_admin_notification(sample, results_url)
         results["admin_notification_email"] = f"sent to {email_notify.ADMIN_NOTIFICATION_EMAIL}"
     except Exception as e:

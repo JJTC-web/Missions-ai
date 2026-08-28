@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Pricing &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Pricing</h1>
+  <p class="lede">Start free with the Organizational Health Assessment. Upgrade any time for grant templates, guides, and more time with Lady Emily.</p>
+</section>
+
+<div class="funding-cards">
+  {% for tier in tier_order %}
+  <div class="funding-card">
+    <h4>{{ tier_labels[tier] }}</h4>
+    <p class="funding-meta"><strong>{{ tier_pricing[tier] }}</strong></p>
+    <ul>
+      {% for feature in tier_features[tier] %}
+      <li>{{ feature }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+</div>
+
+<p class="funding-meta">{{ tier_footnote }}</p>
+
+<p>
+  <a class="button" href="{{ booking_url }}" target="_blank" rel="noopener">Book a 1:1 to upgrade</a>
+</p>
+{% endblock %}
