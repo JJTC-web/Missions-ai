@@ -29,9 +29,53 @@ db.init_db()
 ndb.init_needs_assessment_tables()
 
 
+BOOKING_URL = "https://calendly.com/jjtcinfo/missionos-ai-meeting"
+
+TIER_PRICING = {
+    "free": "$0",
+    "tier1": "$19.95/mo",
+    "tier2": "$49.95/mo",
+    "tier3": "$129.95/mo",
+}
+
+TIER_FEATURES = {
+    "free": [
+        "Organizational Health Assessment with an AI-generated action plan",
+        "Free download: the “Funding the Mission” workbook",
+    ],
+    "tier1": [
+        "Everything in Free",
+        "2026 Grant Tracker template",
+        "A 15-minute 1:1 check-in with Lady Emily once a quarter",
+    ],
+    "tier2": [
+        "Everything in Tier 1",
+        "Grants for Women — Funding Guide",
+    ],
+    "tier3": [
+        "Everything in Tier 2",
+        "Grant Budget Template",
+        "Church Funding Toolkit",
+        "Curated Funding Opportunities, matched to your org",
+    ],
+}
+
+
 @app.route("/")
 def home():
     return render_template("home.html")
+
+
+@app.route("/tiers")
+def tiers_page():
+    return render_template(
+        "tiers.html",
+        tier_order=tiers.TIER_ORDER,
+        tier_labels=tiers.TIER_LABELS,
+        tier_pricing=TIER_PRICING,
+        tier_features=TIER_FEATURES,
+        booking_url=BOOKING_URL,
+    )
 
 
 @app.route("/assessment/start", methods=["GET", "POST"])
@@ -184,6 +228,7 @@ def assessment_results(submission_id):
         submission=submission,
         action_items=action_items,
         milestone=request.args.get("milestone"),
+        booking_url=BOOKING_URL,
     )
 
 

@@ -116,6 +116,16 @@ h2 {
   background: var(--accent-dark);
 }
 
+.button-secondary {
+  background: transparent;
+  color: var(--accent-dark);
+  border: 1px solid var(--border);
+}
+
+.button-secondary:hover {
+  background: var(--card-bg);
+}
+
 form {
   margin-top: 1.5rem;
 }
@@ -435,4 +445,24 @@ fieldset.question legend {
 .milestone-banner-visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+.results-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.results-actions .button {
+  margin-top: 0;
+}
+
+@media print {
+  .site-header,
+  .admin-nav,
+  .site-footer,
+  .no-print {
+    display: none !important;
+  }
 }

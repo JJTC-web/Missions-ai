@@ -77,7 +77,14 @@
 <p>No action plan needed &mdash; no gap areas were flagged.</p>
 {% endif %}
 
-<a class="button" href="{{ url_for('home') }}">Back to home</a>
+<div class="results-actions no-print">
+  <button type="button" class="button" onclick="window.print()">Download / Print Results</button>
+  <a class="button" href="{{ url_for('static', filename='workbook.pdf') }}">Download Free Workbook</a>
+  <a class="button button-secondary" href="{{ url_for('tiers_page') }}">See Pricing</a>
+  <a class="button button-secondary" href="{{ booking_url }}" target="_blank" rel="noopener">Book a 1:1 with Lady Emily</a>
+</div>
+
+<a class="button no-print" href="{{ url_for('home') }}">Back to home</a>
 
 {% if milestone %}
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
