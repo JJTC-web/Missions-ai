@@ -6,12 +6,13 @@ from datetime import datetime, timezone
 from functools import wraps
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, abort, session, flash, send_file
+from flask import Flask, render_template, request, redirect, url_for, abort, session, flash, send_file, send_from_directory
 
 import action_plan
 import db
 import email_notify
 import needs_assessment_db as ndb
+import resource_library as reslib
 import tiers
 import needs_workbook_generator as workbook_gen
 import region_research
@@ -575,6 +576,28 @@ def dashboard_org_set_tier(org_id):
 def dashboard_tiers():
     orgs = ndb.list_orgs()
     return render_template("dashboard_tiers.html", orgs=orgs, tier_labels=tiers.TIER_LABELS, tier_order=tiers.TIER_ORDER)
+
+
+RESOURCE_LIBRARY_DIR = os.path.join(os.path.dirname(__file__), "resource_library", "files")
+
+
+@app.route("/dashboard/resource-library")
+@require_admin
+def dashboard_resource_library():
+    return render_template(
+        "dashboard_resource_library.html",
+        resources=reslib.RESOURCES,
+        tier_labels=tiers.TIER_LABELS,
+    )
+
+
+@app.route("/dashboard/resource-library/<resource_id>/download")
+@require_admin
+def dashboard_resource_library_download(resource_id):
+    resource = reslib.get_resource(resource_id)
+    if not resource:
+        abort(404)
+    return send_from_directory(RESOURCE_LIBRARY_DIR, resource["filename"], as_attachment=True)
 
 
 @app.route("/dashboard/orgs/<int:org_id>/generate", methods=["POST"])
