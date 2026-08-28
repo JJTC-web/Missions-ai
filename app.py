@@ -41,6 +41,7 @@ TIER_PRICING = {
 TIER_FEATURES = {
     "free": [
         "Organizational Health Assessment with results",
+        "National Giving & Humanitarian Dates calendar",
     ],
     "tier1": [
         "2026 Grant Tracker template",
@@ -68,10 +69,60 @@ TIER_FOOTNOTE = (
     "Upgrade, downgrade, or cancel any time."
 )
 
+# National/international giving, humanitarian, and charitable observances,
+# grouped by month. A handful of these move every year (GivingTuesday,
+# National Volunteer Week) -- noted rather than pinned to a specific date,
+# since a wrong specific date is worse than an honest range.
+GIVING_DATES = [
+    {"month": "January", "observances": [
+        {"name": "National Volunteer Blood Donor Month", "when": "All month"},
+        {"name": "MLK Day of Service", "when": "3rd Monday in January"},
+    ]},
+    {"month": "February", "observances": [
+        {"name": "Random Acts of Kindness Day", "when": "February 17"},
+    ]},
+    {"month": "March", "observances": [
+        {"name": "Red Cross Month", "when": "All month"},
+    ]},
+    {"month": "April", "observances": [
+        {"name": "National Volunteer Month", "when": "All month"},
+        {"name": "National Volunteer Week", "when": "Mid-April (exact week set annually)"},
+        {"name": "Global Youth Service Day", "when": "Dates vary"},
+    ]},
+    {"month": "May", "observances": [
+        {"name": "Give Local America", "when": "Dates vary"},
+    ]},
+    {"month": "August", "observances": [
+        {"name": "World Humanitarian Day", "when": "August 19"},
+    ]},
+    {"month": "September", "observances": [
+        {"name": "International Day of Charity", "when": "September 5"},
+        {"name": "International Literacy Day", "when": "September 8"},
+    ]},
+    {"month": "October", "observances": [
+        {"name": "National Community Service Day", "when": "Dates vary"},
+    ]},
+    {"month": "November", "observances": [
+        {"name": "National Philanthropy Day", "when": "November 15"},
+        {"name": "GivingTuesday", "when": "Tuesday after U.S. Thanksgiving"},
+    ]},
+    {"month": "December", "observances": [
+        {"name": "International Day of Persons with Disabilities", "when": "December 3"},
+        {"name": "International Volunteer Day", "when": "December 5"},
+        {"name": "Human Rights Day", "when": "December 10"},
+        {"name": "International Human Solidarity Day", "when": "December 20"},
+    ]},
+]
+
 
 @app.route("/")
 def home():
     return render_template("home.html")
+
+
+@app.route("/giving-calendar")
+def giving_calendar():
+    return render_template("giving_calendar.html", giving_dates=GIVING_DATES)
 
 
 @app.route("/tiers")

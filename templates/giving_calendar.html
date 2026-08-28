@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}National Giving & Humanitarian Dates &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>National Giving & Humanitarian Dates</h1>
+  <p class="lede">
+    Plan outreach, fundraising, and volunteer campaigns around these giving,
+    humanitarian, and charitable observances throughout the year. Available
+    to every MissionOS AI user, at every tier.
+  </p>
+</section>
+
+{% for month in giving_dates %}
+<h2>{{ month.month }}</h2>
+<ul class="breakdown-list">
+  {% for item in month.observances %}
+  <li class="breakdown-item">
+    <span class="breakdown-title">{{ item.name }}</span>
+    <span class="breakdown-weight">{{ item.when }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endfor %}
+
+<p class="funding-meta">
+  A few of these (like GivingTuesday and National Volunteer Week) fall on
+  different exact dates each year &mdash; check closer to the time for the
+  current year's date.
+</p>
+
+<a class="button" href="{{ url_for('home') }}">Back to home</a>
+{% endblock %}
