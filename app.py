@@ -40,25 +40,33 @@ TIER_PRICING = {
 
 TIER_FEATURES = {
     "free": [
-        "Organizational Health Assessment with an AI-generated action plan",
-        "Free download: the “Funding the Mission” workbook",
+        "Organizational Health Assessment with results",
     ],
     "tier1": [
-        "Everything in Free",
         "2026 Grant Tracker template",
         "A 15-minute 1:1 check-in with Lady Emily once a quarter",
     ],
     "tier2": [
-        "Everything in Tier 1",
+        "2026 Grant Tracker template",
         "Grants for Women — Funding Guide",
+        "A 30-minute 1:1 check-in with Lady Emily once a quarter",
+        "15% off bookkeeping reviews when connected to Wave, QBO, or Relay",
     ],
     "tier3": [
-        "Everything in Tier 2",
+        "2026 Grant Tracker template",
+        "Grants for Women — Funding Guide",
         "Grant Budget Template",
         "Church Funding Toolkit",
         "Curated Funding Opportunities, matched to your org",
+        "A 30-minute 1:1 check-in with Lady Emily every month",
+        "15% off bookkeeping reviews when connected to Wave, QBO, or Relay",
     ],
 }
+
+TIER_FOOTNOTE = (
+    "All tiers include the option to onboard with Relay for banking. "
+    "Upgrade, downgrade, or cancel any time."
+)
 
 
 @app.route("/")
@@ -74,6 +82,7 @@ def tiers_page():
         tier_labels=tiers.TIER_LABELS,
         tier_pricing=TIER_PRICING,
         tier_features=TIER_FEATURES,
+        tier_footnote=TIER_FOOTNOTE,
         booking_url=BOOKING_URL,
     )
 
