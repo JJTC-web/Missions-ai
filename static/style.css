@@ -76,6 +76,12 @@ body {
   font-size: 0.85rem;
 }
 
+.copyright-notice {
+  font-size: 0.75rem;
+  max-width: 40rem;
+  margin: 0.5rem auto 0;
+}
+
 h1 {
   font-size: 1.9rem;
   margin-bottom: 0.75rem;
