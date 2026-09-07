@@ -14,9 +14,21 @@ import os
 
 import requests
 
+import scoring
+
 RESEND_API_BASE = "https://api.resend.com"
 
 ADMIN_NOTIFICATION_EMAIL = os.environ.get("ADMIN_NOTIFICATION_EMAIL", "ladyem34@gmail.com")
+
+# Mirrors the traffic-light colors on the results page (static/style.css:
+# .gap-card-red/-yellow, .tier-badge-critical/-warning/-unlocked) -- email
+# clients don't load an external stylesheet, so every value here has to be
+# inlined into the HTML itself.
+SEVERITY_STYLES = {
+    "red": {"border": "#b3261e", "badge_bg": "#f5e6e5", "badge_color": "#b3261e", "emoji": "\U0001F534", "label": "Tackle first"},
+    "yellow": {"border": "#d4a017", "badge_bg": "#fbf0d9", "badge_color": "#8a5a00", "emoji": "\U0001F7E1", "label": "Warning"},
+    "green": {"border": "#2f6f4f", "badge_bg": "#e3f1e9", "badge_color": "#234f39", "emoji": "\U0001F7E2", "label": "Good to go"},
+}
 
 
 def _headers():
@@ -43,18 +55,6 @@ def send_email(to, subject, html):
     return resp.json()
 
 
-def _breakdown_html(breakdown):
-    rows = "".join(
-        f"<tr>"
-        f"<td style='padding:6px 12px;border-bottom:1px solid #e1ddd3;'>{area['title']}</td>"
-        f"<td style='padding:6px 12px;border-bottom:1px solid #e1ddd3;color:#5b6470;'>{area['weight']}&times; weight</td>"
-        f"<td style='padding:6px 12px;border-bottom:1px solid #e1ddd3;'><strong>{area['score']}/100</strong></td>"
-        f"</tr>"
-        for area in breakdown
-    )
-    return f"<table cellspacing='0' cellpadding='0' style='border-collapse:collapse;width:100%;'>{rows}</table>"
-
-
 def _gaps_html(gaps):
     if not gaps:
         return "<p>No gap areas flagged &mdash; every area scored 80 or above.</p>"
@@ -62,40 +62,112 @@ def _gaps_html(gaps):
     return f"<ul>{items}</ul>"
 
 
-def _action_plan_html(submission):
-    if submission.get("action_plan_error"):
-        return "<p>We couldn't generate an AI action plan for this submission.</p>"
-    if not submission.get("action_plan"):
-        return "<p>No action plan needed &mdash; no gap areas were flagged.</p>"
+def _score_badge_html(score, severity):
+    style = SEVERITY_STYLES.get(severity, SEVERITY_STYLES["yellow"])
+    return (
+        f"<span style='display:inline-block;background:{style['badge_bg']};color:{style['badge_color']};"
+        "font-weight:600;font-size:13px;padding:3px 10px;border-radius:999px;white-space:nowrap;'>"
+        f"{score}/100</span>"
+    )
 
-    sections = []
-    for plan in submission["action_plan"]:
-        steps = "".join(f"<li>{s}</li>" for s in plan["action_steps"])
-        resources = "".join(f"<li>{r}</li>" for r in plan["resources_needed"])
-        sections.append(
-            f"<h3 style='margin-bottom:4px;'>{plan['area']}</h3>"
-            f"<p><strong>Timeline:</strong> {plan['timeline']}</p>"
-            f"<p><strong>Action Steps</strong></p><ul>{steps}</ul>"
-            f"<p><strong>Resources Needed</strong></p><ul>{resources}</ul>"
+
+def _gap_card_html(plan):
+    severity = plan.get("severity") or "yellow"
+    style = SEVERITY_STYLES.get(severity, SEVERITY_STYLES["yellow"])
+    badge = _score_badge_html(plan["area_score"], severity) if plan.get("area_score") is not None else ""
+
+    steps = "".join(
+        f"<li style='margin-bottom:6px;'>{s['text'] if isinstance(s, dict) else s}</li>"
+        for s in (plan.get("action_steps") or [])
+    )
+    resources = "".join(f"<li style='margin-bottom:4px;'>{r}</li>" for r in (plan.get("resources_needed") or []))
+    resources_html = (
+        f"<p style='font-weight:600;color:#5b6470;font-size:13px;margin:14px 0 4px;'>Resources Needed</p>"
+        f"<ul style='margin:0;padding-left:20px;color:#5b6470;font-size:14px;'>{resources}</ul>"
+        if resources else ""
+    )
+
+    return f"""
+    <div style="background:#ffffff;border:1px solid #e1ddd3;border-left:4px solid {style['border']};
+      border-radius:8px;padding:18px 20px;margin:16px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;"><tr>
+        <td style="font-size:17px;font-weight:700;color:#1c2430;">
+          {plan['area']} <span style="font-size:13px;font-weight:600;color:#5b6470;">{style['emoji']} {style['label']}</span>
+        </td>
+        <td style="text-align:right;white-space:nowrap;vertical-align:top;">{badge}</td>
+      </tr></table>
+      <div style="background:#eef6f0;border:1px solid #cfe8d8;border-radius:8px;padding:14px 18px;margin:12px 0 0;">
+        <p style="font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:#234f39;margin:0 0 8px;">
+          Next Steps
+        </p>
+        <ul style="margin:0 0 10px;padding-left:20px;">{steps}</ul>
+        <p style="margin:0;font-size:14px;"><strong>Timeline:</strong> {plan.get('timeline', '')}</p>
+      </div>
+      {resources_html}
+    </div>
+    """
+
+
+def _strong_area_html(area):
+    style = SEVERITY_STYLES["green"]
+    return f"""
+    <div style="background:#ffffff;border:1px solid #e1ddd3;border-left:4px solid {style['border']};
+      border-radius:6px;padding:10px 16px;margin:8px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;"><tr>
+        <td style="font-weight:600;color:#1c2430;">{style['emoji']} {area['title']}</td>
+        <td style="text-align:right;">{_score_badge_html(area['score'], 'green')}</td>
+      </tr></table>
+    </div>
+    """
+
+
+def _gap_section_html(submission):
+    if submission.get("action_plan_error"):
+        return (
+            "<p>We couldn't generate an AI action plan for this submission right now. "
+            "Your score and gap list below are still accurate.</p>"
+            + _gaps_html(submission["gaps"])
         )
-    return "".join(sections)
+    if not submission["gaps"]:
+        return "<p>No gap areas flagged &mdash; every area scored 80 or above. Nice work!</p>"
+
+    action_plan, _ = scoring.build_gap_view(submission["breakdown"], submission["gaps"], submission.get("action_plan"))
+    if action_plan:
+        return "".join(_gap_card_html(plan) for plan in action_plan)
+    return _gaps_html(submission["gaps"])
 
 
 def _results_email_html(submission, results_url):
+    _, strong_areas = scoring.build_gap_view(submission["breakdown"], submission["gaps"], submission.get("action_plan"))
+    strong_section = (
+        "<h2 style='margin-top:28px;'>Good to Go</h2>" + "".join(_strong_area_html(a) for a in strong_areas)
+        if strong_areas else ""
+    )
+
     return f"""
     <h1>{submission['org_name']}&rsquo;s Readiness Snapshot</h1>
-    <p><strong>Overall Readiness Score:</strong> {submission['score']}/100</p>
 
-    <h2>Score Breakdown</h2>
-    {_breakdown_html(submission['breakdown'])}
+    <div style="background:#f7f6f2;border:1px solid #e1ddd3;border-radius:10px;padding:20px;text-align:center;margin:16px 0;">
+      <p style="text-transform:uppercase;letter-spacing:0.04em;color:#5b6470;font-size:12px;margin:0;">
+        Overall Readiness Score
+      </p>
+      <p style="font-size:36px;font-weight:700;color:#234f39;margin:6px 0;">
+        {submission['score']}<span style="font-size:16px;color:#5b6470;">/100</span>
+      </p>
+    </div>
 
-    <h2>Gap Areas</h2>
-    {_gaps_html(submission['gaps'])}
+    <p style="font-size:13px;color:#5b6470;margin:8px 0 20px;">
+      &#128994; Green &mdash; good to go, little improvement needed &nbsp;|&nbsp;
+      &#128993; Yellow &mdash; a warning: approaching deadlines, funding risk, or other issues to watch &nbsp;|&nbsp;
+      &#128308; Red &mdash; important: tackle these first
+    </p>
 
-    <h2>AI-Generated Action Plan</h2>
-    {_action_plan_html(submission)}
+    <h2>Gap Areas &amp; Next Steps</h2>
+    {_gap_section_html(submission)}
 
-    <p>
+    {strong_section}
+
+    <p style="margin-top:24px;">
       <a href="{results_url}" style="display:inline-block;padding:10px 18px;background:#2f6f4f;
         color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">
         View &amp; check off your action items
@@ -107,7 +179,7 @@ def _results_email_html(submission, results_url):
     </p>
 
     <p style="color:#5b6470;font-size:0.85rem;">
-      &mdash; MissionOS AI, helping nonprofits build stronger organizations
+      &mdash; MissionOS AI&trade;, helping nonprofits build stronger organizations
       before they build bigger programs.
     </p>
     """
@@ -154,7 +226,7 @@ def send_portal_invite_email(org, invite_link, documents=None):
       us to resend your invite.
     </p>
     <p style="color:#5b6470;font-size:0.85rem;">
-      &mdash; MissionOS AI, helping nonprofits build stronger organizations
+      &mdash; MissionOS AI&trade;, helping nonprofits build stronger organizations
       before they build bigger programs.
     </p>
     """
@@ -182,7 +254,7 @@ def send_password_reset_email(to_email, reset_link):
       you can safely ignore this email.
     </p>
     <p style="color:#5b6470;font-size:0.85rem;">
-      &mdash; MissionOS AI, helping nonprofits build stronger organizations
+      &mdash; MissionOS AI&trade;, helping nonprofits build stronger organizations
       before they build bigger programs.
     </p>
     """

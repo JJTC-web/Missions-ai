@@ -22,7 +22,7 @@ import needs_workbook_generator as workbook_gen
 import region_research
 import supabase_auth
 from assessment import SECTIONS, SECTION_KEYS, SCALE_LABELS
-from scoring import compute_score_breakdown, severity_for_score
+from scoring import build_gap_view, compute_score_breakdown
 
 load_dotenv()
 
@@ -369,21 +369,10 @@ def assessment_results(submission_id):
     # template can show one unified, color-coded "gap + next steps"
     # segment per problem area instead of the score, the gap name, and
     # the plan appearing as three separate, disconnected sections a
-    # reader has to cross-reference by hand.
-    score_by_area = {area["title"]: area["score"] for area in submission["breakdown"]}
-    action_plan = submission.get("action_plan") or []
-    for plan in action_plan:
-        plan["area_score"] = score_by_area.get(plan["area"])
-        plan["severity"] = severity_for_score(plan["area_score"]) if plan["area_score"] is not None else None
-    # Red (most urgent) first, so "tackle these items first" is the
-    # actual reading order, not just a color.
-    severity_order = {"red": 0, "yellow": 1, "green": 2, None: 3}
-    action_plan.sort(key=lambda p: severity_order.get(p["severity"], 3))
+    # reader has to cross-reference by hand. Shared with the results
+    # email (email_notify.py) so both always agree.
+    action_plan, strong_areas = build_gap_view(submission["breakdown"], submission["gaps"], submission.get("action_plan"))
     submission["action_plan"] = action_plan
-
-    strong_areas = [area for area in submission["breakdown"] if area["title"] not in submission["gaps"]]
-    for area in strong_areas:
-        area["severity"] = severity_for_score(area["score"])
 
     return render_template(
         "results.html",
