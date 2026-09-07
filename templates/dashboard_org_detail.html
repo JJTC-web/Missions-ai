@@ -44,7 +44,7 @@
 {% if documents %}
 <table class="dashboard-table">
   <thead>
-    <tr><th>File</th><th>Type</th><th>Uploaded</th><th>By</th><th></th></tr>
+    <tr><th>File</th><th>Type</th><th>Uploaded</th><th>By</th><th>Signed</th><th></th></tr>
   </thead>
   <tbody>
     {% for doc in documents %}
@@ -53,6 +53,15 @@
       <td>{{ doc_type_labels.get(doc.doc_type, doc.doc_type) }}</td>
       <td>{{ doc.uploaded_at }}</td>
       <td>{{ doc.uploaded_by or '—' }}</td>
+      <td>
+        {% if doc.signed_at %}
+          {{ doc.signed_at }}{% if doc.signed_by_name %} by {{ doc.signed_by_name }}{% endif %}
+        {% elif doc.doc_type == 'engagement_letter' %}
+          Awaiting signature
+        {% else %}
+          —
+        {% endif %}
+      </td>
       <td><a href="{{ url_for('dashboard_org_document_download', org_id=org.id, doc_id=doc.id) }}">Download</a></td>
     </tr>
     {% endfor %}
@@ -75,6 +84,34 @@
   <input type="file" id="file" name="file" required>
 
   <button type="submit" class="button">Upload Document</button>
+</form>
+
+<h3>Generate a Grant-Specific Engagement Letter</h3>
+<p class="funding-meta">
+  Creates a Fund Development Engagement Letter PDF scoped to one grant (same section
+  structure as the standard letter) and adds it to Documents above, ready for
+  {{ org.contact_name or 'the client' }} to review and sign in the portal.
+</p>
+<form method="post" action="{{ url_for('dashboard_org_generate_grant_letter', org_id=org.id) }}">
+  <label for="grant_name">Grant name *</label>
+  <input type="text" id="grant_name" name="grant_name" required>
+
+  <label for="grant_funder">Funder (optional)</label>
+  <input type="text" id="grant_funder" name="grant_funder">
+
+  <label for="client_rep_name">Client representative name</label>
+  <input type="text" id="client_rep_name" name="client_rep_name" value="{{ org.contact_name or '' }}">
+
+  <label for="client_rep_title">Client representative title</label>
+  <input type="text" id="client_rep_title" name="client_rep_title" placeholder="Executive Director">
+
+  <label for="flat_fee">Flat fee (USD)</label>
+  <input type="text" id="flat_fee" name="flat_fee" value="200.00">
+
+  <label for="bonus_percent">Grant success bonus (%)</label>
+  <input type="text" id="bonus_percent" name="bonus_percent" value="5">
+
+  <button type="submit" class="button">Generate Engagement Letter</button>
 </form>
 
 <form method="post" action="{{ url_for('dashboard_org_generate', org_id=org.id) }}">

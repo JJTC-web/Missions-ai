@@ -13,6 +13,7 @@ import action_plan
 import db
 import document_storage
 import email_notify
+import engagement_letter_generator
 import needs_assessment_db as ndb
 import portal_db
 import resource_library as reslib
@@ -716,6 +717,55 @@ def dashboard_org_document_download(org_id, doc_id):
     )
 
 
+@app.route("/dashboard/orgs/<int:org_id>/documents/generate-grant-letter", methods=["POST"])
+@require_admin
+def dashboard_org_generate_grant_letter(org_id):
+    org = ndb.get_org(org_id)
+    if not org:
+        abort(404)
+
+    grant_name = request.form.get("grant_name", "").strip()
+    if not grant_name:
+        flash("Grant name is required to generate an engagement letter.")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    grant_funder = request.form.get("grant_funder", "").strip()
+    client_rep_name = request.form.get("client_rep_name", "").strip() or org.get("contact_name") or ""
+    client_rep_title = request.form.get("client_rep_title", "").strip()
+    try:
+        flat_fee = float(request.form.get("flat_fee") or engagement_letter_generator.DEFAULT_FLAT_FEE)
+        bonus_percent = float(request.form.get("bonus_percent") or engagement_letter_generator.DEFAULT_BONUS_PERCENT)
+    except ValueError:
+        flash("Flat fee and bonus percent must be numbers.")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    pdf_bytes = engagement_letter_generator.generate_grant_engagement_letter_pdf(
+        org_name=org["name"],
+        grant_name=grant_name,
+        grant_funder=grant_funder,
+        client_rep_name=client_rep_name,
+        client_rep_title=client_rep_title,
+        flat_fee=flat_fee,
+        bonus_percent=bonus_percent,
+    )
+
+    safe_filename = secure_filename(f"Engagement Letter - {grant_name}.pdf") or "engagement-letter.pdf"
+    storage_path = f"{org_id}/{uuid.uuid4()}-{safe_filename}"
+    try:
+        document_storage.upload_document(storage_path, pdf_bytes, "application/pdf")
+    except Exception as e:
+        app.logger.error("Grant engagement letter generation failed for org %s: %s", org_id, e)
+        flash(f"Couldn't generate the engagement letter: {e}")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    portal_db.create_document(org_id, safe_filename, storage_path, "engagement_letter", session.get("admin_email"))
+    flash(
+        f'Generated "{safe_filename}" and added it to {org["name"]}\'s Documents. '
+        "It's ready for them to review and sign in the portal."
+    )
+    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+
 @app.route("/dashboard/orgs/<int:org_id>/invite", methods=["POST"])
 @require_admin
 def dashboard_org_invite(org_id):
@@ -904,12 +954,15 @@ def portal_login():
             flash("Your account doesn't have portal access for any organization.")
             return redirect(url_for("portal_login", next=next_url))
 
-        if not membership["activated_at"]:
+        first_login = not membership["activated_at"]
+        if first_login:
             portal_db.mark_activated(authenticated_email)
 
         session["client_org_id"] = membership["organization_id"]
         session["client_email"] = authenticated_email
-        return redirect(_safe_next_url(next_url, url_for("portal_home")))
+
+        default_target = url_for("portal_home", milestone="welcome") if first_login else url_for("portal_home")
+        return redirect(_safe_next_url(next_url, default_target))
 
     return render_template("portal_login.html", next=request.args.get("next", ""))
 
@@ -954,7 +1007,29 @@ def portal_home():
         funding_required_tier_label=tiers.TIER_LABELS[FUNDING_REQUIRED_TIER],
         runs=runs,
         client_email=session.get("client_email"),
+        milestone=request.args.get("milestone"),
     )
+
+
+@app.route("/portal/documents/<int:doc_id>/sign", methods=["GET", "POST"])
+@require_client
+def portal_document_sign(doc_id):
+    document = portal_db.get_document(doc_id, session["client_org_id"])
+    if not document or document["doc_type"] != "engagement_letter":
+        abort(404)
+    if document["signed_at"]:
+        return redirect(url_for("portal_home"))
+
+    if request.method == "POST":
+        signed_by_name = request.form.get("signed_by_name", "").strip()
+        if not signed_by_name or not request.form.get("agree"):
+            flash("Enter your full name and confirm you agree to sign.")
+            return redirect(url_for("portal_document_sign", doc_id=doc_id))
+
+        portal_db.sign_document(doc_id, session["client_org_id"], signed_by_name)
+        return redirect(url_for("portal_home", milestone="signed"))
+
+    return render_template("portal_document_sign.html", document=document)
 
 
 @app.route("/portal/documents/<int:doc_id>/download")

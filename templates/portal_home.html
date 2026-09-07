@@ -12,7 +12,7 @@
 {% if documents %}
 <table class="dashboard-table">
   <thead>
-    <tr><th>File</th><th>Type</th><th>Uploaded</th><th></th></tr>
+    <tr><th>File</th><th>Type</th><th>Uploaded</th><th>Status</th><th></th></tr>
   </thead>
   <tbody>
     {% for doc in documents %}
@@ -20,7 +20,21 @@
       <td>{{ doc.file_name }}</td>
       <td>{{ doc_type_labels.get(doc.doc_type, doc.doc_type) }}</td>
       <td>{{ doc.uploaded_at }}</td>
-      <td><a href="{{ url_for('portal_document_download', doc_id=doc.id) }}">Download</a></td>
+      <td>
+        {% if doc.doc_type == 'engagement_letter' %}
+          {% if doc.signed_at %}
+          <span class="tier-badge tier-badge-unlocked">Signed {{ doc.signed_at }}</span>
+          {% else %}
+          <span class="tier-badge tier-badge-locked">Awaiting your signature</span>
+          {% endif %}
+        {% endif %}
+      </td>
+      <td>
+        <a href="{{ url_for('portal_document_download', doc_id=doc.id) }}">Download</a>
+        {% if doc.doc_type == 'engagement_letter' and not doc.signed_at %}
+        &middot; <a href="{{ url_for('portal_document_sign', doc_id=doc.id) }}">Review &amp; Sign</a>
+        {% endif %}
+      </td>
     </tr>
     {% endfor %}
   </tbody>
@@ -85,5 +99,39 @@
 </table>
 {% else %}
 <p>No workbooks have been generated yet.</p>
+{% endif %}
+
+{% if milestone %}
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+<div id="milestone-banner" class="milestone-banner"></div>
+<script>
+  (function () {
+    var milestone = {{ milestone | tojson }};
+    var messages = {
+      welcome: "🎉 Welcome — you're officially in the program!",
+      signed: "🎉 Engagement letter signed — thank you!"
+    };
+    var message = messages[milestone];
+    if (message && window.confetti) {
+      var banner = document.getElementById("milestone-banner");
+      banner.textContent = message;
+      banner.classList.add("milestone-banner-visible");
+      setTimeout(function () {
+        banner.classList.remove("milestone-banner-visible");
+      }, 4000);
+
+      confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+      setTimeout(function () {
+        confetti({ particleCount: 120, spread: 100, origin: { y: 0.6 } });
+      }, 300);
+    }
+
+    if (window.history && window.history.replaceState) {
+      var url = new URL(window.location.href);
+      url.searchParams.delete("milestone");
+      window.history.replaceState({}, "", url);
+    }
+  })();
+</script>
 {% endif %}
 {% endblock %}

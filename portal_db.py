@@ -56,10 +56,22 @@ def init_portal_tables():
         )
         """
     )
+    _add_column_if_missing(cur, "documents", "signed_at", "TIMESTAMP")
+    _add_column_if_missing(cur, "documents", "signed_by_name", "TEXT")
 
     conn.commit()
     cur.close()
     conn.close()
+
+
+def _add_column_if_missing(cur, table, column, coltype):
+    if db.USE_POSTGRES:
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {coltype}")
+        return
+    cur.execute(f"PRAGMA table_info({table})")
+    existing = {row[1] for row in cur.fetchall()}
+    if column not in existing:
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
 
 
 # --- client_users --------------------------------------------------------
@@ -141,24 +153,15 @@ def list_documents(organization_id):
     conn = db.get_db()
     cur = conn.cursor()
     cur.execute(
-        f"SELECT id, file_name, storage_path, doc_type, uploaded_by, uploaded_at "
+        f"SELECT id, file_name, storage_path, doc_type, uploaded_by, uploaded_at, "
+        f"signed_at, signed_by_name "
         f"FROM documents WHERE organization_id = {P} ORDER BY uploaded_at DESC",
         (organization_id,),
     )
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    return [
-        {
-            "id": r[0],
-            "file_name": r[1],
-            "storage_path": r[2],
-            "doc_type": r[3],
-            "uploaded_by": r[4],
-            "uploaded_at": str(r[5]),
-        }
-        for r in rows
-    ]
+    return [_document_row_to_dict(r) for r in rows]
 
 
 def get_document(document_id, organization_id):
@@ -167,7 +170,8 @@ def get_document(document_id, organization_id):
     conn = db.get_db()
     cur = conn.cursor()
     cur.execute(
-        f"SELECT id, file_name, storage_path, doc_type, uploaded_by, uploaded_at "
+        f"SELECT id, file_name, storage_path, doc_type, uploaded_by, uploaded_at, "
+        f"signed_at, signed_by_name "
         f"FROM documents WHERE id = {P} AND organization_id = {P}",
         (document_id, organization_id),
     )
@@ -176,6 +180,10 @@ def get_document(document_id, organization_id):
     conn.close()
     if not row:
         return None
+    return _document_row_to_dict(row)
+
+
+def _document_row_to_dict(row):
     return {
         "id": row[0],
         "file_name": row[1],
@@ -183,7 +191,28 @@ def get_document(document_id, organization_id):
         "doc_type": row[3],
         "uploaded_by": row[4],
         "uploaded_at": str(row[5]),
+        "signed_at": str(row[6]) if row[6] is not None else None,
+        "signed_by_name": row[7],
     }
+
+
+def sign_document(document_id, organization_id, signed_by_name):
+    """Marks a document as signed by the client, scoped to their own org so
+    a guessed document id from another org can't be signed. Returns True
+    if a row was updated (False if it doesn't belong to this org, or was
+    already signed)."""
+    conn = db.get_db()
+    cur = conn.cursor()
+    cur.execute(
+        f"UPDATE documents SET signed_at = {NOW_SQL}, signed_by_name = {P} "
+        f"WHERE id = {P} AND organization_id = {P} AND signed_at IS NULL",
+        (signed_by_name, document_id, organization_id),
+    )
+    conn.commit()
+    updated = cur.rowcount > 0
+    cur.close()
+    conn.close()
+    return updated
 
 
 # --- helpers -----------------------------------------------------------

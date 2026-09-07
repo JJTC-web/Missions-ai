@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Sign Engagement Letter &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<h1>Review &amp; Sign</h1>
+<p><strong>{{ document.file_name }}</strong></p>
+<p>
+  <a class="button button-secondary" href="{{ url_for('portal_document_download', doc_id=document.id) }}" target="_blank" rel="noopener">
+    Open the full letter
+  </a>
+</p>
+<p>Review the full letter above, then sign below to accept its terms.</p>
+
+<form method="post">
+  <label for="signed_by_name">Type your full legal name</label>
+  <input type="text" id="signed_by_name" name="signed_by_name" required>
+
+  <label class="scale-option" style="margin-top:1rem;">
+    <input type="checkbox" name="agree" required>
+    I have read this engagement letter and agree to its terms.
+  </label>
+
+  <button type="submit" class="button">Sign &amp; Accept</button>
+</form>
+{% endblock %}
