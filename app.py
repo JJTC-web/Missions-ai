@@ -73,6 +73,7 @@ TIER_FEATURES = {
     "free": [
         "Organizational Health Assessment with results",
         "National Giving & Humanitarian Dates calendar",
+        "Volunteer & Board Member Toolkit (application, roles, training outline, background check consent)",
     ],
     "tier1": [
         "2026 Grant Tracker template",
