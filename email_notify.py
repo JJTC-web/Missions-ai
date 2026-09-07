@@ -165,6 +165,34 @@ def send_portal_invite_email(org, invite_link, documents=None):
     )
 
 
+def send_password_reset_email(to_email, reset_link):
+    """Emails a Client Portal password-reset link, requested via the
+    portal's "Forgot your password?" flow."""
+    html = f"""
+    <h1>Reset your MissionOS AI Client Portal password</h1>
+    <p>We got a request to reset the password for your Client Portal account.</p>
+    <p>
+      <a href="{reset_link}" style="display:inline-block;padding:10px 18px;background:#2f6f4f;
+        color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">
+        Set a new password
+      </a>
+    </p>
+    <p style="color:#5b6470;font-size:0.85rem;">
+      This link is single-use and expires after a while. If you didn't request this,
+      you can safely ignore this email.
+    </p>
+    <p style="color:#5b6470;font-size:0.85rem;">
+      &mdash; MissionOS AI, helping nonprofits build stronger organizations
+      before they build bigger programs.
+    </p>
+    """
+    send_email(
+        to=to_email,
+        subject="Reset your MissionOS AI Client Portal password",
+        html=html,
+    )
+
+
 def send_admin_notification(submission, results_url):
     """Email a short notification about a new submission to the admin address."""
     html = f"""

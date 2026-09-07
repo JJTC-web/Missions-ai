@@ -675,7 +675,6 @@ def dashboard_org_detail(org_id):
         funding_tier_ok=tiers.tier_meets(org["tier"], FUNDING_REQUIRED_TIER),
         funding_required_tier_label=tiers.TIER_LABELS[FUNDING_REQUIRED_TIER],
         documents=documents, doc_type_labels=portal_db.DOC_TYPE_LABELS,
-        error=None, funding_import_error=None,
     )
 
 
@@ -693,12 +692,12 @@ def dashboard_org_document_upload(org_id):
 
     if not file or not file.filename:
         flash("Choose a file to upload.")
-        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+        return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="documents"))
 
     filename = secure_filename(file.filename)
     if not filename or not _allowed_document(filename):
         flash("Unsupported file type.")
-        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+        return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="documents"))
 
     already_signed = request.form.get("already_signed") == "on"
     signed_by_name = None
@@ -717,14 +716,14 @@ def dashboard_org_document_upload(org_id):
     except Exception as e:
         app.logger.error("Document upload failed for org %s: %s", org_id, e)
         flash(f"Upload failed: {e}")
-        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+        return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="documents"))
 
     portal_db.create_document(
         org_id, filename, storage_path, doc_type, session.get("admin_email"),
         signed_at=signed_at, signed_by_name=signed_by_name,
     )
     flash(f"Uploaded {filename}.")
-    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+    return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="documents"))
 
 
 @app.route("/dashboard/orgs/<int:org_id>/documents/<int:doc_id>/download")
@@ -755,7 +754,7 @@ def dashboard_org_generate_grant_letter(org_id):
     grant_name = request.form.get("grant_name", "").strip()
     if not grant_name:
         flash("Grant name is required to generate an engagement letter.")
-        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+        return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="documents"))
 
     grant_funder = request.form.get("grant_funder", "").strip()
     client_rep_name = request.form.get("client_rep_name", "").strip() or org.get("contact_name") or ""
@@ -765,7 +764,7 @@ def dashboard_org_generate_grant_letter(org_id):
         bonus_percent = float(request.form.get("bonus_percent") or engagement_letter_generator.DEFAULT_BONUS_PERCENT)
     except ValueError:
         flash("Flat fee and bonus percent must be numbers.")
-        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+        return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="documents"))
 
     pdf_bytes = engagement_letter_generator.generate_grant_engagement_letter_pdf(
         org_name=org["name"],
@@ -784,14 +783,14 @@ def dashboard_org_generate_grant_letter(org_id):
     except Exception as e:
         app.logger.error("Grant engagement letter generation failed for org %s: %s", org_id, e)
         flash(f"Couldn't generate the engagement letter: {e}")
-        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+        return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="documents"))
 
     portal_db.create_document(org_id, safe_filename, storage_path, "engagement_letter", session.get("admin_email"))
     flash(
         f'Generated "{safe_filename}" and added it to {org["name"]}\'s Documents. '
         "It's ready for them to review and sign in the portal."
     )
-    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+    return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="documents"))
 
 
 @app.route("/dashboard/orgs/<int:org_id>/invite", methods=["POST"])
@@ -838,22 +837,11 @@ def dashboard_org_funding_import(org_id):
         data = json.loads(raw)
         created, updated = ndb.import_funding_resources(org_id, data)
     except Exception as e:
-        region = ndb.get_region(org["region_id"])
-        runs = ndb.list_needs_runs_for_org(org_id)
-        funding_resources = ndb.list_funding_resources(org_id)
-        documents = portal_db.list_documents(org_id)
-        return render_template(
-            "dashboard_org_detail.html",
-            org=org, region=region, runs=runs,
-            funding_resources=funding_resources,
-            funding_tier_ok=tiers.tier_meets(org["tier"], FUNDING_REQUIRED_TIER),
-            funding_required_tier_label=tiers.TIER_LABELS[FUNDING_REQUIRED_TIER],
-            documents=documents, doc_type_labels=portal_db.DOC_TYPE_LABELS,
-            error=None, funding_import_error=f"Could not import: {e}",
-        )
+        flash(f"Could not import: {e}")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="funding"))
 
     flash(f"Imported funding resources: {created} added, {updated} updated.")
-    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+    return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="funding"))
 
 
 @app.route("/dashboard/orgs/<int:org_id>/funding/<int:resource_id>/delete", methods=["POST"])
@@ -864,7 +852,7 @@ def dashboard_org_funding_delete(org_id, resource_id):
         abort(404)
     ndb.delete_funding_resource(resource_id, org_id)
     flash("Funding resource removed.")
-    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+    return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="funding"))
 
 
 @app.route("/dashboard/orgs/<int:org_id>/tier", methods=["POST"])
@@ -922,7 +910,7 @@ def dashboard_org_generate(org_id):
     region = ndb.get_region(org["region_id"])
     if not region:
         flash("This org's region no longer exists.")
-        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+        return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="workbooks"))
 
     stats = ndb.list_region_stats(region["id"])
     directory = ndb.list_resource_directory(region["id"])
@@ -939,7 +927,7 @@ def dashboard_org_generate(org_id):
         ndb.fail_needs_run(run_id, str(e))
         flash(f"Workbook generation failed: {e}")
 
-    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+    return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="workbooks"))
 
 
 @app.route("/dashboard/needs-runs/<int:run_id>/download.xlsx")
@@ -1000,6 +988,26 @@ def portal_logout():
     session.pop("client_org_id", None)
     session.pop("client_email", None)
     return redirect(url_for("portal_login"))
+
+
+@app.route("/portal/forgot-password", methods=["GET", "POST"])
+def portal_forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        if email:
+            redirect_to = url_for("portal_set_password", _external=True)
+            try:
+                reset_link, _auth_user_id = supabase_auth.admin_generate_recovery_link(email, redirect_to)
+                email_notify.send_password_reset_email(email, reset_link)
+            except Exception as e:
+                # Never reveal whether an email has portal access -- log it
+                # for us to investigate, but show the same message either way.
+                app.logger.info("Password reset request for %s: %s", email, e)
+
+        flash("If that email has portal access, we've sent a link to reset the password.")
+        return redirect(url_for("portal_login"))
+
+    return render_template("portal_forgot_password.html")
 
 
 @app.route("/portal/set-password")
