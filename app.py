@@ -74,6 +74,7 @@ TIER_FEATURES = {
         "Organizational Health Assessment with results",
         "National Giving & Humanitarian Dates calendar",
         "Volunteer & Board Member Toolkit (application, roles, training outline, background check consent)",
+        "Free & Discounted Software Guide for nonprofits",
     ],
     "tier1": [
         "2026 Grant Tracker template",
@@ -158,6 +159,29 @@ GIVING_DATES = [
     ]},
 ]
 
+# Curated free/discounted software already available to eligible nonprofits
+# through the vendors' own programs -- not a JJTC-negotiated discount, so
+# nothing here should be worded as "we got you this deal." Eligibility and
+# offer details are set by each provider and can change; always verify
+# directly with them before relying on a specific number.
+FREE_SOFTWARE = [
+    {"category": "Fundraising & Donations", "tools": [
+        {"name": "Zeffy", "note": "100% free donation and event platform -- no platform fees, ever."},
+        {"name": "Give Lively", "note": "Free donation processing tools for 501(c)(3) organizations."},
+    ]},
+    {"category": "Marketing & Advertising", "tools": [
+        {"name": "Google Ad Grants", "note": "Up to $10,000/month in free Google search ads for eligible 501(c)(3)s."},
+        {"name": "Canva for Nonprofits", "note": "Free upgrade to Canva Pro for eligible nonprofits."},
+    ]},
+    {"category": "Productivity & Office", "tools": [
+        {"name": "Google Workspace for Nonprofits", "note": "Free Business Standard edition for eligible 501(c)(3)s."},
+        {"name": "Microsoft 365 Nonprofit Offers", "note": "Free and discounted Microsoft 365 licenses for eligible nonprofits."},
+    ]},
+    {"category": "Software Marketplace", "tools": [
+        {"name": "TechSoup", "note": "Donated and deeply discounted software licenses (Microsoft, Adobe, and more) for eligible nonprofits."},
+    ]},
+]
+
 
 @app.route("/")
 def home():
@@ -167,6 +191,11 @@ def home():
 @app.route("/giving-calendar")
 def giving_calendar():
     return render_template("giving_calendar.html", giving_dates=GIVING_DATES)
+
+
+@app.route("/software-guide")
+def software_guide():
+    return render_template("software_guide.html", software=FREE_SOFTWARE)
 
 
 @app.route("/tiers")
