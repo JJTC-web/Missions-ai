@@ -88,7 +88,7 @@ INVESTMENT_OPTIONS_BLURB = (
     "banking setup). This happens over Zoom or in person."
 )
 INVESTMENT_OPTIONS_HIGHLIGHT = (
-    "Open as many accounts as you'd like -- for as low as $25 per account, with no "
+    "Open as many accounts as you'd like — for as low as $25 per account, with no "
     "setup fees."
 )
 
