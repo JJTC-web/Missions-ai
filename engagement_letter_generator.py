@@ -19,7 +19,17 @@ FIRM_TAGLINE = "Faith-Filled Financial Strategist"
 FIRM_CONTACT = "www.jjtc.info | 254-589-5683 | info@jehovahjirehtaxconsultants.com"
 FIRM_SIGNATORY = "Lady Emily, Jehovah Jireh Tax Consultants"
 
-DEFAULT_FLAT_FEE = 200.00
+# Standard flat fees by grant category. Traditional/regular grants are a
+# range rather than a fixed number -- the admin enters the specific agreed
+# amount for that engagement. A per-org discount (e.g. a reduced friend
+# rate) is entered the same way: it's still just a number in this field,
+# it just won't match one of these standard figures.
+STANDARD_FLAT_FEES = {
+    "corporate": 550.00,
+    "government": 750.00,
+    "traditional": (200.00, 350.00),
+}
+DEFAULT_FLAT_FEE = 275.00  # midpoint of the traditional/regular range
 DEFAULT_BONUS_PERCENT = 5
 
 

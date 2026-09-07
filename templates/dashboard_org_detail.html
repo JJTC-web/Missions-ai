@@ -83,6 +83,18 @@
   <label for="file">File</label>
   <input type="file" id="file" name="file" required>
 
+  <label class="scale-option" style="margin-top:1rem;">
+    <input type="checkbox" id="already_signed" name="already_signed" onchange="document.getElementById('already-signed-fields').style.display = this.checked ? 'block' : 'none';">
+    This document is already signed (e.g., a scanned or wet-signed engagement letter)
+  </label>
+  <div id="already-signed-fields" style="display:none;">
+    <label for="signed_by_name">Signed by</label>
+    <input type="text" id="signed_by_name" name="signed_by_name" placeholder="e.g., Sharon E. Robinson">
+
+    <label for="signed_date">Signed date</label>
+    <input type="date" id="signed_date" name="signed_date">
+  </div>
+
   <button type="submit" class="button">Upload Document</button>
 </form>
 
@@ -105,8 +117,16 @@
   <label for="client_rep_title">Client representative title</label>
   <input type="text" id="client_rep_title" name="client_rep_title" placeholder="Executive Director">
 
+  <label for="grant_category">Grant category (sets a starting flat fee &mdash; always editable below)</label>
+  <select id="grant_category" name="grant_category" onchange="var fee = this.options[this.selectedIndex].dataset.fee; if (fee) { document.getElementById('flat_fee').value = fee; }">
+    <option value="corporate" data-fee="550.00">Corporate Grant ($550)</option>
+    <option value="government" data-fee="750.00">Government Grant ($750)</option>
+    <option value="traditional" data-fee="" selected>Traditional / Regular Grant ($200&ndash;$350)</option>
+    <option value="other" data-fee="">Other / Custom (e.g., a reduced or discounted rate)</option>
+  </select>
+
   <label for="flat_fee">Flat fee (USD)</label>
-  <input type="text" id="flat_fee" name="flat_fee" value="200.00">
+  <input type="text" id="flat_fee" name="flat_fee" placeholder="e.g., 275.00">
 
   <label for="bonus_percent">Grant success bonus (%)</label>
   <input type="text" id="bonus_percent" name="bonus_percent" value="5">

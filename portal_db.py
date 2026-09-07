@@ -134,14 +134,18 @@ def mark_activated(email):
 
 # --- documents -------------------------------------------------------------
 
-def create_document(organization_id, file_name, storage_path, doc_type, uploaded_by):
+def create_document(organization_id, file_name, storage_path, doc_type, uploaded_by, signed_at=None, signed_by_name=None):
+    """signed_at/signed_by_name let an admin upload a document that was
+    already signed outside the portal (e.g. a scanned or wet-signed
+    engagement letter) without it showing an "awaiting signature" /
+    "Review & Sign" prompt the client never needs to act on."""
     conn = db.get_db()
     cur = conn.cursor()
     doc_id = _insert_returning_id(
         cur,
-        f"INSERT INTO documents (organization_id, file_name, storage_path, doc_type, uploaded_by) "
-        f"VALUES ({P}, {P}, {P}, {P}, {P})",
-        (organization_id, file_name, storage_path, doc_type, uploaded_by),
+        f"INSERT INTO documents (organization_id, file_name, storage_path, doc_type, uploaded_by, signed_at, signed_by_name) "
+        f"VALUES ({P}, {P}, {P}, {P}, {P}, {P}, {P})",
+        (organization_id, file_name, storage_path, doc_type, uploaded_by, signed_at, signed_by_name),
     )
     conn.commit()
     cur.close()

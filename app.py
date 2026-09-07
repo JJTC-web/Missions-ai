@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from functools import wraps
 
 from dotenv import load_dotenv
@@ -686,6 +686,17 @@ def dashboard_org_document_upload(org_id):
         flash("Unsupported file type.")
         return redirect(url_for("dashboard_org_detail", org_id=org_id))
 
+    already_signed = request.form.get("already_signed") == "on"
+    signed_by_name = None
+    signed_at = None
+    if already_signed:
+        signed_by_name = request.form.get("signed_by_name", "").strip() or None
+        signed_date_raw = request.form.get("signed_date", "").strip()
+        try:
+            signed_at = datetime.strptime(signed_date_raw, "%Y-%m-%d").date() if signed_date_raw else date.today()
+        except ValueError:
+            signed_at = date.today()
+
     storage_path = f"{org_id}/{uuid.uuid4()}-{filename}"
     try:
         document_storage.upload_document(storage_path, file.read(), file.content_type)
@@ -694,7 +705,10 @@ def dashboard_org_document_upload(org_id):
         flash(f"Upload failed: {e}")
         return redirect(url_for("dashboard_org_detail", org_id=org_id))
 
-    portal_db.create_document(org_id, filename, storage_path, doc_type, session.get("admin_email"))
+    portal_db.create_document(
+        org_id, filename, storage_path, doc_type, session.get("admin_email"),
+        signed_at=signed_at, signed_by_name=signed_by_name,
+    )
     flash(f"Uploaded {filename}.")
     return redirect(url_for("dashboard_org_detail", org_id=org_id))
 

@@ -205,10 +205,19 @@ structure as JJTC's standard Fund Development Engagement Letter (Purpose,
 Scope of Services, Fees, Client Responsibilities, Term & Termination, No
 Guarantee of Funding, Acceptance) but scoped to one named grant instead of
 full fund development support. Fill in the grant name (required), funder,
-client representative name/title, and fee terms (defaults to the standard
-$200 flat fee + 5% grant success bonus); the generated PDF is uploaded to
-the org's Document Vault as an Engagement Letter, immediately visible --
-and signable -- on their portal.
+client representative name/title, and fee terms -- a **Grant category**
+picker sets a starting flat fee (`engagement_letter_generator.STANDARD_FLAT_FEES`)
+that's always editable: Corporate $550, Government $750, Traditional/Regular
+$200-$350 (enter the specific agreed amount), or Other/Custom for a reduced
+or one-off rate -- plus a 5% grant success bonus by default. The generated
+PDF is uploaded to the org's Document Vault as an Engagement Letter,
+immediately visible -- and signable -- on their portal.
+
+Already have a signed letter (e.g. a scanned or wet-signed original,
+rather than one generated here)? The regular **Upload Document** form has
+an "already signed" checkbox -- check it and enter who signed and when,
+and it uploads already marked Signed instead of prompting the client to
+sign again in the portal.
 
 ### One-time setup
 
