@@ -13,68 +13,85 @@
   </p>
 </div>
 
-<h2>Score Breakdown</h2>
-<ul class="breakdown-list">
-  {% for area in submission.breakdown %}
-  <li class="breakdown-item">
-    <span class="breakdown-title">{{ area.title }}</span>
-    <span class="breakdown-weight">{{ area.weight }}&times; weight</span>
-    <span class="breakdown-score">{{ area.score }}/100</span>
-  </li>
-  {% endfor %}
-</ul>
+<p class="results-legend">
+  <span>&#128994; Green &mdash; good to go, little improvement needed</span>
+  <span>&#128993; Yellow &mdash; a warning: approaching deadlines, funding risk, or other issues to watch</span>
+  <span>&#128308; Red &mdash; important: tackle these first</span>
+</p>
 
-<h2>Gap Areas</h2>
-{% if submission.gaps %}
-<ul class="gap-list">
-  {% for gap in submission.gaps %}<li>{{ gap }}</li>{% endfor %}
-</ul>
-{% else %}
-<p>No gap areas flagged &mdash; every area scored 80 or above. Nice work!</p>
-{% endif %}
-
-<h2>AI-Generated Action Plan</h2>
+<h2>Gap Areas &amp; Next Steps</h2>
 {% if submission.action_plan_error %}
 <p class="error">
   We couldn't generate an AI action plan for this submission right now. Your score
-  and gap list above are still accurate &mdash; try refreshing this page in a bit.
+  and gap list below are still accurate &mdash; try refreshing this page in a bit.
 </p>
+{% endif %}
+
+{% if not submission.gaps %}
+<p>No gap areas flagged &mdash; every area scored 80 or above. Nice work!</p>
 {% elif submission.action_plan %}
 {% for plan in submission.action_plan %}
-<div class="plan-card">
-  <h3>{{ plan.area }}</h3>
-  <p class="plan-timeline"><strong>Timeline:</strong> {{ plan.timeline }}</p>
+<div class="gap-card gap-card-{{ plan.severity or 'yellow' }}">
+  <div class="gap-card-header">
+    <h3>
+      {{ plan.area }}
+      <span class="severity-label">
+        {% if plan.severity == 'red' %}&#128308; Tackle first{% else %}&#128993; Warning{% endif %}
+      </span>
+    </h3>
+    {% if plan.area_score is not none %}
+    <span class="tier-badge tier-badge-{{ 'critical' if plan.severity == 'red' else 'warning' }}">{{ plan.area_score }}/100</span>
+    {% endif %}
+  </div>
 
-  <p class="plan-subheading">Action Steps</p>
-  {% set area_items = action_items | selectattr('area', 'equalto', plan.area) | list %}
-  {% if area_items %}
-  <ul class="checklist">
-    {% for item in area_items %}
-    <li class="checklist-item{% if item.is_complete %} checklist-item-done{% endif %}">
-      <form method="post" action="{{ url_for('assessment_toggle_action_item', submission_id=submission.id, item_id=item.id) }}">
-        <button type="submit" class="checklist-toggle" aria-label="Toggle complete">{{ '☑' if item.is_complete else '☐' }}</button>
-      </form>
-      <span class="checklist-text">{{ item.step_text }}</span>
-      {% if item.due_date %}<span class="checklist-due">Due {{ item.due_date }}</span>{% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <ul>
-    {% for step in plan.action_steps %}
-    <li>{{ step.text if step is mapping else step }}</li>
-    {% endfor %}
-  </ul>
-  {% endif %}
+  <div class="next-steps-block">
+    <p class="next-steps-label">Next Steps</p>
+    {% set area_items = action_items | selectattr('area', 'equalto', plan.area) | list %}
+    {% if area_items %}
+    <ul class="checklist">
+      {% for item in area_items %}
+      <li class="checklist-item{% if item.is_complete %} checklist-item-done{% endif %}">
+        <form method="post" action="{{ url_for('assessment_toggle_action_item', submission_id=submission.id, item_id=item.id) }}">
+          <button type="submit" class="checklist-toggle" aria-label="Toggle complete">{{ '☑' if item.is_complete else '☐' }}</button>
+        </form>
+        <span class="checklist-text">{{ item.step_text }}</span>
+        {% if item.due_date %}<span class="checklist-due">Due {{ item.due_date }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <ul class="checklist">
+      {% for step in plan.action_steps %}
+      <li class="checklist-item"><span class="checklist-text">{{ step.text if step is mapping else step }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <p class="plan-timeline"><strong>Timeline:</strong> {{ plan.timeline }}</p>
+  </div>
 
-  <p class="plan-subheading">Resources Needed</p>
-  <ul>
+  <p class="plan-subheading-muted">Resources Needed</p>
+  <ul class="muted-list">
     {% for resource in plan.resources_needed %}<li>{{ resource }}</li>{% endfor %}
   </ul>
 </div>
 {% endfor %}
 {% else %}
-<p>No action plan needed &mdash; no gap areas were flagged.</p>
+<ul class="gap-list">
+  {% for gap in submission.gaps %}<li>{{ gap }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+{% if strong_areas %}
+<h2>Good to Go</h2>
+<ul class="breakdown-list">
+  {% for area in strong_areas %}
+  <li class="breakdown-item breakdown-item-green">
+    <span class="breakdown-title">&#128994; {{ area.title }}</span>
+    <span class="breakdown-weight">{{ area.weight }}&times; weight</span>
+    <span class="tier-badge tier-badge-unlocked">{{ area.score }}/100</span>
+  </li>
+  {% endfor %}
+</ul>
 {% endif %}
 
 <div class="results-actions no-print">

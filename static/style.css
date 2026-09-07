@@ -446,6 +446,16 @@ fieldset.question legend {
   color: var(--error);
 }
 
+.tier-badge-critical {
+  background: #f5e6e5;
+  color: var(--error);
+}
+
+.tier-badge-warning {
+  background: #fbf0d9;
+  color: #8a5a00;
+}
+
 .milestone-banner {
   position: fixed;
   top: 1.5rem;
@@ -521,4 +531,98 @@ fieldset.question legend {
 
 .tab-panel {
   padding-top: 1.5rem;
+}
+
+.gap-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--error);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin: 1.25rem 0;
+}
+
+.gap-card-red {
+  border-left-color: var(--error);
+}
+
+.gap-card-yellow {
+  border-left-color: #d4a017;
+}
+
+.gap-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.gap-card-header h3 {
+  margin: 0;
+}
+
+.severity-label {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
+.breakdown-item-green {
+  border-left: 4px solid var(--accent);
+}
+
+.results-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0.75rem 0 1.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.results-legend span {
+  white-space: nowrap;
+}
+
+.next-steps-block {
+  background: #eef6f0;
+  border: 1px solid #cfe8d8;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+
+.next-steps-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent-dark);
+  margin: 0 0 0.6rem;
+}
+
+.next-steps-block .checklist {
+  margin-bottom: 0.75rem;
+}
+
+.next-steps-block .plan-timeline {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.plan-subheading-muted {
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 1rem 0 0.25rem;
+}
+
+.muted-list {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+  padding-left: 1.25rem;
 }

@@ -1,6 +1,21 @@
 from assessment import SECTIONS, SECTION_KEYS
 
 GAP_THRESHOLD = 80
+CRITICAL_THRESHOLD = 50
+
+
+def severity_for_score(score):
+    """Traffic-light severity for one area's score:
+    "red"    (< 50)  -- tackle these first
+    "yellow" (50-79) -- a real gap, approaching risk (deadlines, funding
+                        eligibility, etc.), but not the most urgent
+    "green"  (80+)   -- good to go, little improvement needed
+    """
+    if score < CRITICAL_THRESHOLD:
+        return "red"
+    if score < GAP_THRESHOLD:
+        return "yellow"
+    return "green"
 
 
 def compute_score_breakdown(answers):
