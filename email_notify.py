@@ -124,6 +124,47 @@ def send_results_email(submission, results_url):
     )
 
 
+def _invite_documents_html(documents):
+    if not documents:
+        return ""
+    items = "".join(f"<li>{d['file_name']}</li>" for d in documents)
+    return f"<h2>Already waiting for you</h2><ul>{items}</ul>"
+
+
+def send_portal_invite_email(org, invite_link, documents=None):
+    """Invites an org's contact to their Client Portal, where their fund
+    development resources and any documents already uploaded for them
+    (e.g. a signed engagement letter) are waiting.
+    """
+    if not org.get("contact_email"):
+        return
+    html = f"""
+    <h1>You're invited to your MissionOS AI Client Portal</h1>
+    <p>{org['name']} now has a private portal for fund development resources
+    {"and documents" if documents else ""} matched to your organization.</p>
+    {_invite_documents_html(documents or [])}
+    <p>
+      <a href="{invite_link}" style="display:inline-block;padding:10px 18px;background:#2f6f4f;
+        color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">
+        Set your password &amp; sign in
+      </a>
+    </p>
+    <p style="color:#5b6470;font-size:0.85rem;">
+      This link is single-use and expires after a while &mdash; if it stops working, ask
+      us to resend your invite.
+    </p>
+    <p style="color:#5b6470;font-size:0.85rem;">
+      &mdash; MissionOS AI, helping nonprofits build stronger organizations
+      before they build bigger programs.
+    </p>
+    """
+    send_email(
+        to=org["contact_email"],
+        subject=f"You're invited: {org['name']}'s MissionOS AI Client Portal",
+        html=html,
+    )
+
+
 def send_admin_notification(submission, results_url):
     """Email a short notification about a new submission to the admin address."""
     html = f"""

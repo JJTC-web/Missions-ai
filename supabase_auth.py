@@ -73,3 +73,51 @@ def is_admin(email):
     )
     resp.raise_for_status()
     return len(resp.json()) > 0
+
+
+def admin_generate_invite_link(email, redirect_to):
+    """
+    Generates a Supabase Auth link for the Client Portal invite flow, using
+    the Admin API (service role key) rather than Supabase's own invite
+    email -- we send the email ourselves via Resend so it matches the rest
+    of MissionOS AI's branding.
+
+    A brand-new email gets an "invite" link (creates the Supabase Auth user
+    and lets them set a password). An email that already has a Supabase
+    Auth account -- e.g. re-inviting, or the contact already logged in
+    once -- can't get a fresh "invite" link, so this falls back to a
+    "recovery" (password reset) link for the same effect.
+
+    Returns (action_link, auth_user_id).
+    """
+    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not service_key:
+        raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY is not set")
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": "application/json",
+    }
+
+    resp = requests.post(
+        f"{_supabase_url()}/auth/v1/admin/generate_link",
+        headers=headers,
+        json={"type": "invite", "email": email, "options": {"redirect_to": redirect_to}},
+        timeout=15,
+    )
+    if not resp.ok:
+        resp = requests.post(
+            f"{_supabase_url()}/auth/v1/admin/generate_link",
+            headers=headers,
+            json={"type": "recovery", "email": email, "options": {"redirect_to": redirect_to}},
+            timeout=15,
+        )
+    if not resp.ok:
+        try:
+            detail = resp.json().get("msg") or resp.text
+        except ValueError:
+            detail = resp.text
+        raise RuntimeError(f"Supabase invite link generation failed: {detail}")
+
+    data = resp.json()
+    return data["action_link"], data["user"]["id"]

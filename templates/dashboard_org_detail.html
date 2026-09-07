@@ -17,6 +17,13 @@
 {% if org.contact_name %}<p><strong>Contact:</strong> {{ org.contact_name }}{% if org.contact_email %} ({{ org.contact_email }}){% endif %}</p>{% endif %}
 {% if org.mission %}<p><strong>Mission:</strong> {{ org.mission }}</p>{% endif %}
 
+<form method="post" action="{{ url_for('dashboard_org_invite', org_id=org.id) }}">
+  <button type="submit" class="button">
+    {% if org.contact_email %}Invite {{ org.contact_email }} to Portal{% else %}Invite to Portal{% endif %}
+  </button>
+</form>
+{% if not org.contact_email %}<p class="funding-meta">This organization needs a contact email before you can invite them to the portal.</p>{% endif %}
+
 <p>
   <strong>Subscription Tier:</strong>
   {{ {'free': 'Free', 'tier1': 'Tier 1', 'tier2': 'Tier 2', 'tier3': 'Tier 3'}.get(org.tier, org.tier) }}
@@ -31,6 +38,43 @@
     <option value="tier3" {% if org.tier == 'tier3' %}selected{% endif %}>Tier 3 ($129.95/mo)</option>
   </select>
   <button type="submit" class="button">Update Tier</button>
+</form>
+
+<h2>Documents</h2>
+{% if documents %}
+<table class="dashboard-table">
+  <thead>
+    <tr><th>File</th><th>Type</th><th>Uploaded</th><th>By</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for doc in documents %}
+    <tr>
+      <td>{{ doc.file_name }}</td>
+      <td>{{ doc_type_labels.get(doc.doc_type, doc.doc_type) }}</td>
+      <td>{{ doc.uploaded_at }}</td>
+      <td>{{ doc.uploaded_by or '—' }}</td>
+      <td><a href="{{ url_for('dashboard_org_document_download', org_id=org.id, doc_id=doc.id) }}">Download</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No documents uploaded yet.</p>
+{% endif %}
+
+<form method="post" action="{{ url_for('dashboard_org_document_upload', org_id=org.id) }}" enctype="multipart/form-data">
+  <label for="doc_type">Document type</label>
+  <select id="doc_type" name="doc_type">
+    <option value="engagement_letter">Engagement Letter</option>
+    <option value="rfp_draft">RFP Draft</option>
+    <option value="grant_template">Grant Template</option>
+    <option value="other">Other</option>
+  </select>
+
+  <label for="file">File</label>
+  <input type="file" id="file" name="file" required>
+
+  <button type="submit" class="button">Upload Document</button>
 </form>
 
 <form method="post" action="{{ url_for('dashboard_org_generate', org_id=org.id) }}">
@@ -71,8 +115,8 @@
   {% endif %}
 </h2>
 <p class="funding-meta">
-  As admin you always see and manage this content. The badge above previews what this
-  org itself would see once org-facing accounts exist.
+  As admin you always see and manage this content. The badge above shows what this org
+  itself sees on its Client Portal once invited.
 </p>
 
 {% if funding_resources %}

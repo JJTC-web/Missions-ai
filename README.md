@@ -137,6 +137,66 @@ logging in with your own account (same blocked behavior above), then
 `insert into admins (email) values ('your-email@example.com');` to restore
 your access.
 
+## Client Portal + Document Vault
+
+Each organization can be given its own private, authenticated portal at
+`/portal` showing its fund development resources (Funding Opportunities,
+Needs Assessment Workbooks) and a **Documents** tab listing any files an
+admin has uploaded and attached to that org's record -- e.g. a signed
+engagement letter, an RFP draft, or a grant template. Clients cannot upload
+documents themselves in v1, and are always scoped to their own
+`organization_id` -- they can't see or query another org's data.
+
+### Admin side (`/dashboard/orgs/<id>`)
+
+- **Upload Document** -- attach a file to an org, tagged as an Engagement
+  Letter, RFP Draft, Grant Template, or Other. Files are stored in a
+  private Supabase Storage bucket (`org-documents`, created automatically
+  on first upload) at `org-documents/{organization_id}/{uuid}-{filename}`;
+  only the server (via `SUPABASE_SERVICE_ROLE_KEY`) ever reads or writes
+  that bucket directly -- admin and client downloads are always proxied
+  through this app's own auth-checked routes, never a public or signed
+  Supabase URL.
+- **Invite to Portal** -- creates (or reuses) a Supabase Auth user for the
+  org's contact email, then emails them a password-setup link via Resend.
+  Any documents already uploaded are listed in that invite email and are
+  waiting on the org's portal home the first time they sign in.
+
+### Client side (`/portal`)
+
+- `/portal/login` -- email + password sign-in (same Supabase Auth project
+  as the admin dashboard, but a `client_users` row -- not the `admins`
+  table -- grants access, and it grants access to exactly one org).
+- After following an invite email's link, `/portal/set-password` lets the
+  client set their password (calls Supabase Auth directly from the
+  browser using the invite link's short-lived token, then signs them into
+  this app).
+- `/portal` -- the org's portal home: Documents, Funding Opportunities
+  (gated by subscription tier, same as the admin preview badge), and
+  Needs Assessment Workbook downloads.
+
+### One-time setup
+
+No additional environment variables beyond what's already required for
+the admin dashboard (`SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`) -- the Document Vault reuses them for both
+Supabase Storage and the Admin API (used to create client Auth users and
+generate invite links without sending Supabase's own invite email).
+
+The `org-documents` Storage bucket is created automatically (as private)
+the first time a document is uploaded, so there's no manual Supabase
+dashboard step required beyond the `admins` table setup already described
+above.
+
+### Testing that a client can't see another org's data
+
+1. Create two orgs under **Organizations**, each with a different contact
+   email, and invite both to the portal.
+2. Upload a document to org A only.
+3. Sign in to `/portal` as org B's contact. Confirm org A's document does
+   not appear, and that guessing org A's document id in
+   `/portal/documents/<id>/download` returns a 404 rather than the file.
+
 ## Deployment (Railway)
 
 This app is set up to run the same way most Flask apps run on Railway:
