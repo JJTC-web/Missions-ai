@@ -75,6 +75,39 @@ def is_admin(email):
     return len(resp.json()) > 0
 
 
+def _admin_headers():
+    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not service_key:
+        raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY is not set")
+    return {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": "application/json",
+    }
+
+
+def _generate_link(link_type, email, redirect_to):
+    resp = requests.post(
+        f"{_supabase_url()}/auth/v1/admin/generate_link",
+        headers=_admin_headers(),
+        json={"type": link_type, "email": email, "options": {"redirect_to": redirect_to}},
+        timeout=15,
+    )
+    return resp
+
+
+def _extract_link_result(data):
+    """The raw GoTrue REST response merges the user's fields (id, email,
+    ...) directly at the top level alongside the link properties
+    (action_link, ...) -- there's no nested "user" object, unlike what
+    some client SDKs construct from it. Fall back to a nested "user" key
+    too, in case that ever differs by Supabase version."""
+    auth_user_id = data.get("id") or data.get("user", {}).get("id")
+    if not auth_user_id:
+        raise RuntimeError(f"Supabase response didn't include a user id: {data}")
+    return data["action_link"], auth_user_id
+
+
 def admin_generate_invite_link(email, redirect_to):
     """
     Generates a Supabase Auth link for the Client Portal invite flow, using
@@ -90,28 +123,9 @@ def admin_generate_invite_link(email, redirect_to):
 
     Returns (action_link, auth_user_id).
     """
-    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    if not service_key:
-        raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY is not set")
-    headers = {
-        "apikey": service_key,
-        "Authorization": f"Bearer {service_key}",
-        "Content-Type": "application/json",
-    }
-
-    resp = requests.post(
-        f"{_supabase_url()}/auth/v1/admin/generate_link",
-        headers=headers,
-        json={"type": "invite", "email": email, "options": {"redirect_to": redirect_to}},
-        timeout=15,
-    )
+    resp = _generate_link("invite", email, redirect_to)
     if not resp.ok:
-        resp = requests.post(
-            f"{_supabase_url()}/auth/v1/admin/generate_link",
-            headers=headers,
-            json={"type": "recovery", "email": email, "options": {"redirect_to": redirect_to}},
-            timeout=15,
-        )
+        resp = _generate_link("recovery", email, redirect_to)
     if not resp.ok:
         try:
             detail = resp.json().get("msg") or resp.text
@@ -119,5 +133,27 @@ def admin_generate_invite_link(email, redirect_to):
             detail = resp.text
         raise RuntimeError(f"Supabase invite link generation failed: {detail}")
 
-    data = resp.json()
-    return data["action_link"], data["user"]["id"]
+    return _extract_link_result(resp.json())
+
+
+def admin_generate_recovery_link(email, redirect_to):
+    """
+    Generates a Supabase Auth password-reset link for an existing user, for
+    the portal's "Forgot your password?" flow. Unlike admin_generate_invite_link,
+    this never falls back to "invite" -- an email with no Supabase Auth
+    account should fail here rather than silently create one, so the
+    caller can treat "no such account" the same as "email sent" (never
+    reveal which emails have portal access).
+
+    Returns (action_link, auth_user_id). Raises RuntimeError if the email
+    has no Supabase Auth account or the request otherwise fails.
+    """
+    resp = _generate_link("recovery", email, redirect_to)
+    if not resp.ok:
+        try:
+            detail = resp.json().get("msg") or resp.text
+        except ValueError:
+            detail = resp.text
+        raise RuntimeError(f"Supabase recovery link generation failed: {detail}")
+
+    return _extract_link_result(resp.json())
