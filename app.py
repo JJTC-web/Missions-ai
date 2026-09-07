@@ -80,6 +80,18 @@ TIER_FOOTNOTE = (
     "Upgrade, downgrade, or cancel any time."
 )
 
+INVESTMENT_OPTIONS_BLURB = (
+    "Available at any tier, independent of your plan: want to explore ways to invest "
+    "and grow long-term funding for your organization? We'll set up a 30-minute or "
+    "1-hour partner-level call to walk through investment options together and "
+    "complete the additional paperwork involved (more forms than a standard Relay "
+    "banking setup). This happens over Zoom or in person."
+)
+INVESTMENT_OPTIONS_HIGHLIGHT = (
+    "Open as many accounts as you'd like — for as low as $25 per account, with no "
+    "setup fees."
+)
+
 # National/international giving, humanitarian, and charitable observances,
 # grouped by month. A handful of these move every year (GivingTuesday,
 # National Volunteer Week) -- noted rather than pinned to a specific date,
@@ -145,6 +157,8 @@ def tiers_page():
         tier_pricing=TIER_PRICING,
         tier_features=TIER_FEATURES,
         tier_footnote=TIER_FOOTNOTE,
+        investment_options_blurb=INVESTMENT_OPTIONS_BLURB,
+        investment_options_highlight=INVESTMENT_OPTIONS_HIGHLIGHT,
         booking_url=BOOKING_URL,
     )
 
