@@ -6,9 +6,19 @@
   <p class="lede">Start free with the Organizational Health Assessment. Upgrade any time for grant templates, guides, and more time with Lady Emily.</p>
 </section>
 
+<div class="callout-box">
+  <p class="callout-title">Tier 2 &amp; 3: 15% off bookkeeping reviews</p>
+  <p>
+    Connect Wave, QBO, or Relay and save 15% on your annual bookkeeping review &mdash;
+    e.g., a $800 review drops to $680. That's real money back in your budget, not just
+    another template.
+  </p>
+</div>
+
 <div class="funding-cards">
   {% for tier in tier_order %}
-  <div class="funding-card">
+  <div class="funding-card{% if tier == 'tier2' %} funding-card-popular{% endif %}">
+    {% if tier == 'tier2' %}<p class="popular-ribbon">Most Popular</p>{% endif %}
     <h4>{{ tier_labels[tier] }}</h4>
     <p class="funding-meta"><strong>{{ tier_pricing[tier] }}</strong></p>
     <ul>
@@ -16,6 +26,11 @@
       <li>{{ feature }}</li>
       {% endfor %}
     </ul>
+    {% if tier == 'tier1' %}
+    <a class="button" href="{{ trial_mailto }}">Start your free 30 days</a>
+    {% elif tier in ('tier2', 'tier3') %}
+    <a class="button" href="{{ booking_url }}" target="_blank" rel="noopener">Book a 1:1 to upgrade</a>
+    {% endif %}
   </div>
   {% endfor %}
 </div>
@@ -23,7 +38,7 @@
 <p class="funding-meta">{{ tier_footnote }}</p>
 
 <p>
-  <a class="button" href="{{ booking_url }}" target="_blank" rel="noopener">Book a 1:1 to upgrade</a>
+  <a class="button button-secondary" href="{{ booking_url }}" target="_blank" rel="noopener">Not sure which tier? Book a 1:1</a>
 </p>
 
 <h2>Investment Options</h2>

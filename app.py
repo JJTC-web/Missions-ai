@@ -168,6 +168,13 @@ def giving_calendar():
     return render_template("giving_calendar.html", giving_dates=GIVING_DATES)
 
 
+TRIAL_MAILTO = (
+    "mailto:" + email_notify.ADMIN_NOTIFICATION_EMAIL
+    + "?subject=" + "Start%20my%20free%2030-day%20Tier%201%20trial"
+    + "&body=" + "Organization%20name%3A%0D%0AContact%20email%3A%0D%0A"
+)
+
+
 @app.route("/tiers")
 def tiers_page():
     return render_template(
@@ -180,6 +187,7 @@ def tiers_page():
         investment_options_blurb=INVESTMENT_OPTIONS_BLURB,
         investment_options_highlight=INVESTMENT_OPTIONS_HIGHLIGHT,
         booking_url=BOOKING_URL,
+        trial_mailto=TRIAL_MAILTO,
     )
 
 

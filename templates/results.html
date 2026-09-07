@@ -34,6 +34,9 @@
 {% endif %}
 
 <h2>AI-Generated Action Plan</h2>
+{% if session.get('is_admin') %}
+<p class="funding-meta">As admin, you're seeing every gap area unlocked. Free visitors see only the first below.</p>
+{% endif %}
 {% if submission.action_plan_error %}
 <p class="error">
   We couldn't generate an AI action plan for this submission right now. Your score
@@ -41,6 +44,7 @@
 </p>
 {% elif submission.action_plan %}
 {% for plan in submission.action_plan %}
+{% if loop.first or session.get('is_admin') %}
 <div class="plan-card">
   <h3>{{ plan.area }}</h3>
   <p class="plan-timeline"><strong>Timeline:</strong> {{ plan.timeline }}</p>
@@ -72,6 +76,17 @@
     {% for resource in plan.resources_needed %}<li>{{ resource }}</li>{% endfor %}
   </ul>
 </div>
+{% else %}
+<div class="plan-card plan-card-locked">
+  <h3>{{ plan.area }} <span class="tier-badge tier-badge-locked">Locked</span></h3>
+  <p>
+    Your full step-by-step action plan for this area &mdash; action steps, timeline,
+    and resources needed &mdash; is ready. Upgrade to unlock it, plus every gap area
+    beyond your first.
+  </p>
+  <a class="button" href="{{ url_for('tiers_page') }}">Unlock your complete action plan</a>
+</div>
+{% endif %}
 {% endfor %}
 {% else %}
 <p>No action plan needed &mdash; no gap areas were flagged.</p>
