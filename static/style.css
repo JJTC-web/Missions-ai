@@ -487,3 +487,38 @@ fieldset.question legend {
     display: none !important;
   }
 }
+
+.page-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-top: 1.5rem;
+  overflow-x: auto;
+}
+
+.page-tab {
+  background: none;
+  border: none;
+  padding: 0.75rem 1rem;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+}
+
+.page-tab:hover {
+  color: var(--ink);
+}
+
+.page-tab.active {
+  color: var(--accent-dark);
+  border-bottom-color: var(--accent);
+}
+
+.tab-panel {
+  padding-top: 1.5rem;
+}

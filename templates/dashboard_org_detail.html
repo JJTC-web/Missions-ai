@@ -6,213 +6,252 @@
   <a class="button" href="{{ url_for('dashboard_orgs') }}">Back to Organizations</a>
 </div>
 
-<p>
-  <strong>Region:</strong>
-  {% if region %}
-    <a href="{{ url_for('dashboard_region_detail', region_id=region.id) }}">{{ region.city }}, {{ region.state }}</a>
-  {% else %}
-    Unknown
-  {% endif %}
-</p>
-{% if org.contact_name %}<p><strong>Contact:</strong> {{ org.contact_name }}{% if org.contact_email %} ({{ org.contact_email }}){% endif %}</p>{% endif %}
-{% if org.mission %}<p><strong>Mission:</strong> {{ org.mission }}</p>{% endif %}
+<nav class="page-tabs">
+  <button type="button" class="page-tab" data-tab="overview">Overview</button>
+  <button type="button" class="page-tab" data-tab="documents">Documents</button>
+  <button type="button" class="page-tab" data-tab="workbooks">Workbooks</button>
+  <button type="button" class="page-tab" data-tab="funding">Funding</button>
+</nav>
 
-<form method="post" action="{{ url_for('dashboard_org_invite', org_id=org.id) }}">
-  <button type="submit" class="button">
-    {% if org.contact_email %}Invite {{ org.contact_email }} to Portal{% else %}Invite to Portal{% endif %}
-  </button>
-</form>
-{% if not org.contact_email %}<p class="funding-meta">This organization needs a contact email before you can invite them to the portal.</p>{% endif %}
-
-<p>
-  <strong>Subscription Tier:</strong>
-  {{ {'free': 'Free', 'tier1': 'Tier 1', 'tier2': 'Tier 2', 'tier3': 'Tier 3'}.get(org.tier, org.tier) }}
-</p>
-<form method="post" action="{{ url_for('dashboard_org_set_tier', org_id=org.id) }}">
-  <input type="hidden" name="next" value="{{ url_for('dashboard_org_detail', org_id=org.id) }}">
-  <label for="tier">Set tier (tracked manually &mdash; no billing is wired up yet)</label>
-  <select id="tier" name="tier">
-    <option value="free" {% if org.tier == 'free' %}selected{% endif %}>Free</option>
-    <option value="tier1" {% if org.tier == 'tier1' %}selected{% endif %}>Tier 1 ($19.95/mo)</option>
-    <option value="tier2" {% if org.tier == 'tier2' %}selected{% endif %}>Tier 2 ($49.95/mo)</option>
-    <option value="tier3" {% if org.tier == 'tier3' %}selected{% endif %}>Tier 3 ($129.95/mo)</option>
-  </select>
-  <button type="submit" class="button">Update Tier</button>
-</form>
-
-<h2>Documents</h2>
-{% if documents %}
-<table class="dashboard-table">
-  <thead>
-    <tr><th>File</th><th>Type</th><th>Uploaded</th><th>By</th><th>Signed</th><th></th></tr>
-  </thead>
-  <tbody>
-    {% for doc in documents %}
-    <tr>
-      <td>{{ doc.file_name }}</td>
-      <td>{{ doc_type_labels.get(doc.doc_type, doc.doc_type) }}</td>
-      <td>{{ doc.uploaded_at }}</td>
-      <td>{{ doc.uploaded_by or '—' }}</td>
-      <td>
-        {% if doc.signed_at %}
-          {{ doc.signed_at }}{% if doc.signed_by_name %} by {{ doc.signed_by_name }}{% endif %}
-        {% elif doc.doc_type == 'engagement_letter' %}
-          Awaiting signature
-        {% else %}
-          —
-        {% endif %}
-      </td>
-      <td><a href="{{ url_for('dashboard_org_document_download', org_id=org.id, doc_id=doc.id) }}">Download</a></td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p>No documents uploaded yet.</p>
-{% endif %}
-
-<form method="post" action="{{ url_for('dashboard_org_document_upload', org_id=org.id) }}" enctype="multipart/form-data">
-  <label for="doc_type">Document type</label>
-  <select id="doc_type" name="doc_type">
-    <option value="engagement_letter">Engagement Letter</option>
-    <option value="rfp_draft">RFP Draft</option>
-    <option value="grant_template">Grant Template</option>
-    <option value="other">Other</option>
-  </select>
-
-  <label for="file">File</label>
-  <input type="file" id="file" name="file" required>
-
-  <label class="scale-option" style="margin-top:1rem;">
-    <input type="checkbox" id="already_signed" name="already_signed" onchange="document.getElementById('already-signed-fields').style.display = this.checked ? 'block' : 'none';">
-    This document is already signed (e.g., a scanned or wet-signed engagement letter)
-  </label>
-  <div id="already-signed-fields" style="display:none;">
-    <label for="signed_by_name">Signed by</label>
-    <input type="text" id="signed_by_name" name="signed_by_name" placeholder="e.g., Sharon E. Robinson">
-
-    <label for="signed_date">Signed date</label>
-    <input type="date" id="signed_date" name="signed_date">
-  </div>
-
-  <button type="submit" class="button">Upload Document</button>
-</form>
-
-<h3>Generate a Grant-Specific Engagement Letter</h3>
-<p class="funding-meta">
-  Creates a Fund Development Engagement Letter PDF scoped to one grant (same section
-  structure as the standard letter) and adds it to Documents above, ready for
-  {{ org.contact_name or 'the client' }} to review and sign in the portal.
-</p>
-<form method="post" action="{{ url_for('dashboard_org_generate_grant_letter', org_id=org.id) }}">
-  <label for="grant_name">Grant name *</label>
-  <input type="text" id="grant_name" name="grant_name" required>
-
-  <label for="grant_funder">Funder (optional)</label>
-  <input type="text" id="grant_funder" name="grant_funder">
-
-  <label for="client_rep_name">Client representative name</label>
-  <input type="text" id="client_rep_name" name="client_rep_name" value="{{ org.contact_name or '' }}">
-
-  <label for="client_rep_title">Client representative title</label>
-  <input type="text" id="client_rep_title" name="client_rep_title" placeholder="Executive Director">
-
-  <label for="grant_category">Grant category (sets a starting flat fee &mdash; always editable below)</label>
-  <select id="grant_category" name="grant_category" onchange="var fee = this.options[this.selectedIndex].dataset.fee; if (fee) { document.getElementById('flat_fee').value = fee; }">
-    <option value="corporate" data-fee="550.00">Corporate Grant ($550)</option>
-    <option value="government" data-fee="750.00">Government Grant ($750)</option>
-    <option value="traditional" data-fee="" selected>Traditional / Regular Grant ($200&ndash;$350)</option>
-    <option value="other" data-fee="">Other / Custom (e.g., a reduced or discounted rate)</option>
-  </select>
-
-  <label for="flat_fee">Flat fee (USD)</label>
-  <input type="text" id="flat_fee" name="flat_fee" placeholder="e.g., 275.00">
-
-  <label for="bonus_percent">Grant success bonus (%)</label>
-  <input type="text" id="bonus_percent" name="bonus_percent" value="5">
-
-  <button type="submit" class="button">Generate Engagement Letter</button>
-</form>
-
-<form method="post" action="{{ url_for('dashboard_org_generate', org_id=org.id) }}">
-  <button type="submit" class="button">Generate Needs Assessment Workbook</button>
-</form>
-<p class="submitted-at">This calls the Claude API and can take up to a minute or two.</p>
-
-<h2>Workbook Runs</h2>
-{% if runs %}
-<table class="dashboard-table">
-  <thead>
-    <tr><th>Created</th><th>Status</th><th></th></tr>
-  </thead>
-  <tbody>
-    {% for run in runs %}
-    <tr>
-      <td>{{ run.created_at }}</td>
-      <td>{{ run.status }}</td>
-      <td>
-        {% if run.status == 'complete' %}
-        <a href="{{ url_for('dashboard_needs_run_download', run_id=run.id) }}">Download .xlsx</a>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p>No workbooks generated yet.</p>
-{% endif %}
-
-<h2>
-  Funding Opportunities
-  {% if funding_tier_ok %}
-  <span class="tier-badge tier-badge-unlocked">Unlocked for this org ({{ funding_required_tier_label }}+)</span>
-  {% else %}
-  <span class="tier-badge tier-badge-locked">Requires {{ funding_required_tier_label }} &mdash; locked for this org</span>
-  {% endif %}
-</h2>
-<p class="funding-meta">
-  As admin you always see and manage this content. The badge above shows what this org
-  itself sees on its Client Portal once invited.
-</p>
-
-{% if funding_resources %}
-{% set categories = funding_resources | map(attribute='category_label') | unique | list %}
-{% for cat in categories %}
-<h3>{{ cat }}</h3>
-<div class="funding-cards">
-  {% for r in funding_resources if r.category_label == cat %}
-  <div class="funding-card">
-    <h4>{{ r.title }}</h4>
-    <p class="funding-meta"><strong>{{ r.funder }}</strong>{% if r.region %} &middot; {{ r.region }}{% endif %}</p>
-    {% if r.amount_range %}<p class="funding-meta">{{ r.amount_range }}</p>{% endif %}
-    {% if r.window_opens or r.window_closes %}
-    <p class="funding-meta">Window: {{ r.window_opens or '?' }} &ndash; {{ r.window_closes or '?' }}</p>
+<div id="tab-overview" class="tab-panel">
+  <p>
+    <strong>Region:</strong>
+    {% if region %}
+      <a href="{{ url_for('dashboard_region_detail', region_id=region.id) }}">{{ region.city }}, {{ region.state }}</a>
+    {% else %}
+      Unknown
     {% endif %}
-    {% if r.window_notes %}<p class="funding-meta">{{ r.window_notes }}</p>{% endif %}
-    <p class="funding-status">Status: {{ r.status or '—' }}{% if r.required_tier %} &middot; Requires: {{ r.required_tier }}{% endif %}</p>
-    {% if r.description %}<p>{{ r.description }}</p>{% endif %}
-    {% if r.eligibility_note %}<p class="funding-meta"><em>{{ r.eligibility_note }}</em></p>{% endif %}
-    {% if r.funding_pillars %}<p class="funding-meta">Pillars: {{ r.funding_pillars | join(', ') }}</p>{% endif %}
-    {% if r.placeholders %}<p class="funding-meta">Fields to confirm: {{ r.placeholders | join(', ') }}</p>{% endif %}
-    {% if r.draft_file %}<p class="funding-meta">Draft file: {{ r.draft_file }}</p>{% endif %}
-    {% if r.source_url %}<p><a href="{{ r.source_url }}" target="_blank" rel="noopener">Source &rarr;</a></p>{% endif %}
-    <form method="post" action="{{ url_for('dashboard_org_funding_delete', org_id=org.id, resource_id=r.id) }}">
-      <button type="submit" class="button button-secondary">Remove</button>
-    </form>
+  </p>
+  {% if org.contact_name %}<p><strong>Contact:</strong> {{ org.contact_name }}{% if org.contact_email %} ({{ org.contact_email }}){% endif %}</p>{% endif %}
+  {% if org.mission %}<p><strong>Mission:</strong> {{ org.mission }}</p>{% endif %}
+
+  <form method="post" action="{{ url_for('dashboard_org_invite', org_id=org.id) }}">
+    <button type="submit" class="button">
+      {% if org.contact_email %}Invite {{ org.contact_email }} to Portal{% else %}Invite to Portal{% endif %}
+    </button>
+  </form>
+  {% if not org.contact_email %}<p class="funding-meta">This organization needs a contact email before you can invite them to the portal.</p>{% endif %}
+
+  <p>
+    <strong>Subscription Tier:</strong>
+    {{ {'free': 'Free', 'tier1': 'Tier 1', 'tier2': 'Tier 2', 'tier3': 'Tier 3'}.get(org.tier, org.tier) }}
+  </p>
+  <form method="post" action="{{ url_for('dashboard_org_set_tier', org_id=org.id) }}">
+    <input type="hidden" name="next" value="{{ url_for('dashboard_org_detail', org_id=org.id, _anchor='overview') }}">
+    <label for="tier">Set tier (tracked manually &mdash; no billing is wired up yet)</label>
+    <select id="tier" name="tier">
+      <option value="free" {% if org.tier == 'free' %}selected{% endif %}>Free</option>
+      <option value="tier1" {% if org.tier == 'tier1' %}selected{% endif %}>Tier 1 ($19.95/mo)</option>
+      <option value="tier2" {% if org.tier == 'tier2' %}selected{% endif %}>Tier 2 ($49.95/mo)</option>
+      <option value="tier3" {% if org.tier == 'tier3' %}selected{% endif %}>Tier 3 ($129.95/mo)</option>
+    </select>
+    <button type="submit" class="button">Update Tier</button>
+  </form>
+</div>
+
+<div id="tab-documents" class="tab-panel" hidden>
+  <h2>Documents</h2>
+  {% if documents %}
+  <table class="dashboard-table">
+    <thead>
+      <tr><th>File</th><th>Type</th><th>Uploaded</th><th>By</th><th>Signed</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for doc in documents %}
+      <tr>
+        <td>{{ doc.file_name }}</td>
+        <td>{{ doc_type_labels.get(doc.doc_type, doc.doc_type) }}</td>
+        <td>{{ doc.uploaded_at }}</td>
+        <td>{{ doc.uploaded_by or '—' }}</td>
+        <td>
+          {% if doc.signed_at %}
+            {{ doc.signed_at }}{% if doc.signed_by_name %} by {{ doc.signed_by_name }}{% endif %}
+          {% elif doc.doc_type == 'engagement_letter' %}
+            Awaiting signature
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td><a href="{{ url_for('dashboard_org_document_download', org_id=org.id, doc_id=doc.id) }}">Download</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No documents uploaded yet.</p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('dashboard_org_document_upload', org_id=org.id) }}" enctype="multipart/form-data">
+    <label for="doc_type">Document type</label>
+    <select id="doc_type" name="doc_type">
+      <option value="engagement_letter">Engagement Letter</option>
+      <option value="rfp_draft">RFP Draft</option>
+      <option value="grant_template">Grant Template</option>
+      <option value="other">Other</option>
+    </select>
+
+    <label for="file">File</label>
+    <input type="file" id="file" name="file" required>
+
+    <label class="scale-option" style="margin-top:1rem;">
+      <input type="checkbox" id="already_signed" name="already_signed" onchange="document.getElementById('already-signed-fields').style.display = this.checked ? 'block' : 'none';">
+      This document is already signed (e.g., a scanned or wet-signed engagement letter)
+    </label>
+    <div id="already-signed-fields" style="display:none;">
+      <label for="signed_by_name">Signed by</label>
+      <input type="text" id="signed_by_name" name="signed_by_name" placeholder="e.g., Sharon E. Robinson">
+
+      <label for="signed_date">Signed date</label>
+      <input type="date" id="signed_date" name="signed_date">
+    </div>
+
+    <button type="submit" class="button">Upload Document</button>
+  </form>
+
+  <h3>Generate a Grant-Specific Engagement Letter</h3>
+  <p class="funding-meta">
+    Creates a Fund Development Engagement Letter PDF scoped to one grant (same section
+    structure as the standard letter) and adds it to Documents above, ready for
+    {{ org.contact_name or 'the client' }} to review and sign in the portal.
+  </p>
+  <form method="post" action="{{ url_for('dashboard_org_generate_grant_letter', org_id=org.id) }}">
+    <label for="grant_name">Grant name *</label>
+    <input type="text" id="grant_name" name="grant_name" required>
+
+    <label for="grant_funder">Funder (optional)</label>
+    <input type="text" id="grant_funder" name="grant_funder">
+
+    <label for="client_rep_name">Client representative name</label>
+    <input type="text" id="client_rep_name" name="client_rep_name" value="{{ org.contact_name or '' }}">
+
+    <label for="client_rep_title">Client representative title</label>
+    <input type="text" id="client_rep_title" name="client_rep_title" placeholder="Executive Director">
+
+    <label for="grant_category">Grant category (sets a starting flat fee &mdash; always editable below)</label>
+    <select id="grant_category" name="grant_category" onchange="var fee = this.options[this.selectedIndex].dataset.fee; if (fee) { document.getElementById('flat_fee').value = fee; }">
+      <option value="corporate" data-fee="550.00">Corporate Grant ($550)</option>
+      <option value="government" data-fee="750.00">Government Grant ($750)</option>
+      <option value="traditional" data-fee="" selected>Traditional / Regular Grant ($200&ndash;$350)</option>
+      <option value="other" data-fee="">Other / Custom (e.g., a reduced or discounted rate)</option>
+    </select>
+
+    <label for="flat_fee">Flat fee (USD)</label>
+    <input type="text" id="flat_fee" name="flat_fee" placeholder="e.g., 275.00">
+
+    <label for="bonus_percent">Grant success bonus (%)</label>
+    <input type="text" id="bonus_percent" name="bonus_percent" value="5">
+
+    <button type="submit" class="button">Generate Engagement Letter</button>
+  </form>
+</div>
+
+<div id="tab-workbooks" class="tab-panel" hidden>
+  <form method="post" action="{{ url_for('dashboard_org_generate', org_id=org.id) }}">
+    <button type="submit" class="button">Generate Needs Assessment Workbook</button>
+  </form>
+  <p class="submitted-at">This calls the Claude API and can take up to a minute or two.</p>
+
+  <h2>Workbook Runs</h2>
+  {% if runs %}
+  <table class="dashboard-table">
+    <thead>
+      <tr><th>Created</th><th>Status</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for run in runs %}
+      <tr>
+        <td>{{ run.created_at }}</td>
+        <td>{{ run.status }}</td>
+        <td>
+          {% if run.status == 'complete' %}
+          <a href="{{ url_for('dashboard_needs_run_download', run_id=run.id) }}">Download .xlsx</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No workbooks generated yet.</p>
+  {% endif %}
+</div>
+
+<div id="tab-funding" class="tab-panel" hidden>
+  <h2>
+    Funding Opportunities
+    {% if funding_tier_ok %}
+    <span class="tier-badge tier-badge-unlocked">Unlocked for this org ({{ funding_required_tier_label }}+)</span>
+    {% else %}
+    <span class="tier-badge tier-badge-locked">Requires {{ funding_required_tier_label }} &mdash; locked for this org</span>
+    {% endif %}
+  </h2>
+  <p class="funding-meta">
+    As admin you always see and manage this content. The badge above shows what this org
+    itself sees on its Client Portal once invited.
+  </p>
+
+  {% if funding_resources %}
+  {% set categories = funding_resources | map(attribute='category_label') | unique | list %}
+  {% for cat in categories %}
+  <h3>{{ cat }}</h3>
+  <div class="funding-cards">
+    {% for r in funding_resources if r.category_label == cat %}
+    <div class="funding-card">
+      <h4>{{ r.title }}</h4>
+      <p class="funding-meta"><strong>{{ r.funder }}</strong>{% if r.region %} &middot; {{ r.region }}{% endif %}</p>
+      {% if r.amount_range %}<p class="funding-meta">{{ r.amount_range }}</p>{% endif %}
+      {% if r.window_opens or r.window_closes %}
+      <p class="funding-meta">Window: {{ r.window_opens or '?' }} &ndash; {{ r.window_closes or '?' }}</p>
+      {% endif %}
+      {% if r.window_notes %}<p class="funding-meta">{{ r.window_notes }}</p>{% endif %}
+      <p class="funding-status">Status: {{ r.status or '—' }}{% if r.required_tier %} &middot; Requires: {{ r.required_tier }}{% endif %}</p>
+      {% if r.description %}<p>{{ r.description }}</p>{% endif %}
+      {% if r.eligibility_note %}<p class="funding-meta"><em>{{ r.eligibility_note }}</em></p>{% endif %}
+      {% if r.funding_pillars %}<p class="funding-meta">Pillars: {{ r.funding_pillars | join(', ') }}</p>{% endif %}
+      {% if r.placeholders %}<p class="funding-meta">Fields to confirm: {{ r.placeholders | join(', ') }}</p>{% endif %}
+      {% if r.draft_file %}<p class="funding-meta">Draft file: {{ r.draft_file }}</p>{% endif %}
+      {% if r.source_url %}<p><a href="{{ r.source_url }}" target="_blank" rel="noopener">Source &rarr;</a></p>{% endif %}
+      <form method="post" action="{{ url_for('dashboard_org_funding_delete', org_id=org.id, resource_id=r.id) }}">
+        <button type="submit" class="button button-secondary">Remove</button>
+      </form>
+    </div>
+    {% endfor %}
   </div>
   {% endfor %}
-</div>
-{% endfor %}
-{% else %}
-<p>No funding resources loaded for this org yet.</p>
-{% endif %}
+  {% else %}
+  <p>No funding resources loaded for this org yet.</p>
+  {% endif %}
 
-<h3>Import Guided Resources JSON</h3>
-{% if funding_import_error %}<p class="error">{{ funding_import_error }}</p>{% endif %}
-<form method="post" action="{{ url_for('dashboard_org_funding_import', org_id=org.id) }}">
-  <label for="resources_json">Paste the Guided Resources JSON export</label>
-  <textarea id="resources_json" name="resources_json" rows="10" style="width:100%;font-family:monospace;" required></textarea>
-  <button type="submit" class="button">Import</button>
-</form>
+  <h3>Import Guided Resources JSON</h3>
+  <form method="post" action="{{ url_for('dashboard_org_funding_import', org_id=org.id) }}">
+    <label for="resources_json">Paste the Guided Resources JSON export</label>
+    <textarea id="resources_json" name="resources_json" rows="10" style="width:100%;font-family:monospace;" required></textarea>
+    <button type="submit" class="button">Import</button>
+  </form>
+</div>
+
+<script>
+(function () {
+  var buttons = document.querySelectorAll('.page-tab');
+  var panels = document.querySelectorAll('.tab-panel');
+  var validTabs = Array.prototype.map.call(buttons, function (b) { return b.dataset.tab; });
+
+  function activate(tabId) {
+    if (validTabs.indexOf(tabId) === -1) tabId = validTabs[0];
+    panels.forEach(function (p) { p.hidden = p.id !== 'tab-' + tabId; });
+    buttons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tabId); });
+    if (window.history && window.history.replaceState) {
+      var url = new URL(window.location.href);
+      url.hash = tabId;
+      window.history.replaceState({}, '', url);
+    }
+  }
+
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () { activate(b.dataset.tab); });
+  });
+
+  activate((window.location.hash || '').replace('#', ''));
+})();
+</script>
 {% endblock %}
