@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 
 from dotenv import load_dotenv
@@ -28,6 +28,11 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+# Client Portal logins are marked session.permanent = True (see portal_login)
+# so a client stays signed in across browser restarts instead of being
+# bounced back to login every time they close their browser -- a paying
+# client shouldn't have to re-authenticate just to check on their org.
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
 db.init_db()
 ndb.init_needs_assessment_tables()
@@ -1039,6 +1044,7 @@ def portal_login():
         if first_login:
             portal_db.mark_activated(authenticated_email)
 
+        session.permanent = True
         session["client_org_id"] = membership["organization_id"]
         session["client_email"] = authenticated_email
 
