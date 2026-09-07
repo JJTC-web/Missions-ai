@@ -14,6 +14,7 @@ import db
 import document_storage
 import email_notify
 import engagement_letter_generator
+import grant_matching
 import needs_assessment_db as ndb
 import portal_db
 import resource_library as reslib
@@ -906,6 +907,26 @@ def dashboard_org_funding_import(org_id):
         return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="funding"))
 
     flash(f"Imported funding resources: {created} added, {updated} updated.")
+    return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="funding"))
+
+
+@app.route("/dashboard/orgs/<int:org_id>/funding/match", methods=["POST"])
+@require_admin
+def dashboard_org_funding_match(org_id):
+    org = ndb.get_org(org_id)
+    if not org:
+        abort(404)
+    region = ndb.get_region(org["region_id"])
+
+    try:
+        data = grant_matching.match_funding_opportunities(org, region)
+        created, updated = ndb.import_funding_resources(org_id, data)
+    except Exception as e:
+        app.logger.error("Funding match failed for org %s: %s", org_id, e)
+        flash(f"Couldn't find matched funding opportunities: {e}")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="funding"))
+
+    flash(f"Found matched funding opportunities: {created} added, {updated} updated.")
     return redirect(url_for("dashboard_org_detail", org_id=org_id, _anchor="funding"))
 
 
