@@ -42,6 +42,26 @@ def _allowed_document(filename):
 
 BOOKING_URL = "https://calendly.com/jjtcinfo/missionos-ai-meeting"
 
+# All 50 states plus DC, for the Region state picker -- a fixed, closed set
+# unlike city (which stays free text: a region is a specific city an admin
+# is actively curating local stats/resources for, not a pick from every
+# city in the country).
+US_STATES = [
+    ("AL", "Alabama"), ("AK", "Alaska"), ("AZ", "Arizona"), ("AR", "Arkansas"),
+    ("CA", "California"), ("CO", "Colorado"), ("CT", "Connecticut"), ("DE", "Delaware"),
+    ("DC", "District of Columbia"), ("FL", "Florida"), ("GA", "Georgia"), ("HI", "Hawaii"),
+    ("ID", "Idaho"), ("IL", "Illinois"), ("IN", "Indiana"), ("IA", "Iowa"),
+    ("KS", "Kansas"), ("KY", "Kentucky"), ("LA", "Louisiana"), ("ME", "Maine"),
+    ("MD", "Maryland"), ("MA", "Massachusetts"), ("MI", "Michigan"), ("MN", "Minnesota"),
+    ("MS", "Mississippi"), ("MO", "Missouri"), ("MT", "Montana"), ("NE", "Nebraska"),
+    ("NV", "Nevada"), ("NH", "New Hampshire"), ("NJ", "New Jersey"), ("NM", "New Mexico"),
+    ("NY", "New York"), ("NC", "North Carolina"), ("ND", "North Dakota"), ("OH", "Ohio"),
+    ("OK", "Oklahoma"), ("OR", "Oregon"), ("PA", "Pennsylvania"), ("RI", "Rhode Island"),
+    ("SC", "South Carolina"), ("SD", "South Dakota"), ("TN", "Tennessee"), ("TX", "Texas"),
+    ("UT", "Utah"), ("VT", "Vermont"), ("VA", "Virginia"), ("WA", "Washington"),
+    ("WV", "West Virginia"), ("WI", "Wisconsin"), ("WY", "Wyoming"),
+]
+
 TIER_PRICING = {
     "free": "$0",
     "tier1": "$19.95/mo",
@@ -412,7 +432,7 @@ def dashboard():
 @require_admin
 def dashboard_regions():
     regions = ndb.list_regions()
-    return render_template("dashboard_regions.html", regions=regions, error=None, form={})
+    return render_template("dashboard_regions.html", regions=regions, us_states=US_STATES, error=None, form={})
 
 
 @app.route("/dashboard/seed-gary", methods=["POST"])
@@ -439,6 +459,7 @@ def dashboard_regions_new():
         return render_template(
             "dashboard_regions.html",
             regions=regions,
+            us_states=US_STATES,
             error="City and state are required.",
             form=request.form,
         )
@@ -623,7 +644,7 @@ def dashboard_region_draft_reject(region_id, draft_id):
 def dashboard_orgs():
     orgs = ndb.list_orgs()
     regions = ndb.list_regions()
-    return render_template("dashboard_orgs.html", orgs=orgs, regions=regions, error=None, form={})
+    return render_template("dashboard_orgs.html", orgs=orgs, regions=regions, us_states=US_STATES, error=None, form={})
 
 
 @app.route("/dashboard/orgs/new", methods=["POST"])
@@ -631,23 +652,37 @@ def dashboard_orgs():
 def dashboard_orgs_new():
     name = request.form.get("name", "").strip()
     region_id = request.form.get("region_id", "").strip()
+    new_region_city = request.form.get("new_region_city", "").strip()
+    new_region_state = request.form.get("new_region_state", "").strip()
+    new_region_county = request.form.get("new_region_county", "").strip()
     contact_name = request.form.get("contact_name", "").strip()
     contact_email = request.form.get("contact_email", "").strip()
     mission = request.form.get("mission", "").strip()
 
-    if not name or not region_id:
+    def _rerender(error):
         orgs = ndb.list_orgs()
         regions = ndb.list_regions()
         return render_template(
             "dashboard_orgs.html",
             orgs=orgs,
             regions=regions,
-            error="Organization name and region are required.",
+            us_states=US_STATES,
+            error=error,
             form=request.form,
         )
 
+    if not name:
+        return _rerender("Organization name is required.")
+
+    if not region_id:
+        if not new_region_city or not new_region_state:
+            return _rerender("Select an existing region, or enter a city and state to add a new one.")
+        region_id = ndb.create_region(new_region_city, new_region_county or None, new_region_state)
+    else:
+        region_id = int(region_id)
+
     org_id = ndb.create_org(
-        name, int(region_id),
+        name, region_id,
         contact_name=contact_name or None,
         contact_email=contact_email or None,
         mission=mission or None,
