@@ -9,6 +9,11 @@
 <body>
   <header class="site-header">
     <a class="brand" href="{{ url_for('home') }}">MissionOS AI</a>
+    {% if session.get('client_org_id') %}
+    <a class="header-link" href="{{ url_for('portal_home') }}">My Portal</a>
+    {% elif not session.get('is_admin') %}
+    <a class="header-link" href="{{ url_for('portal_login') }}">Client Portal Login</a>
+    {% endif %}
   </header>
   {% if session.get('is_admin') %}
   <nav class="admin-nav">

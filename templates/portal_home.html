@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{{ org.name }} Portal &mdash; MissionOS AI{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+  <h1>{{ org.name }}</h1>
+  <form method="post" action="{{ url_for('portal_logout') }}">
+    <button type="submit" class="button">Log Out ({{ client_email }})</button>
+  </form>
+</div>
+
+<h2>Documents</h2>
+{% if documents %}
+<table class="dashboard-table">
+  <thead>
+    <tr><th>File</th><th>Type</th><th>Uploaded</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for doc in documents %}
+    <tr>
+      <td>{{ doc.file_name }}</td>
+      <td>{{ doc_type_labels.get(doc.doc_type, doc.doc_type) }}</td>
+      <td>{{ doc.uploaded_at }}</td>
+      <td>
+        {% if doc.doc_type == 'engagement_letter' %}
+          {% if doc.signed_at %}
+          <span class="tier-badge tier-badge-unlocked">Signed {{ doc.signed_at }}</span>
+          {% else %}
+          <span class="tier-badge tier-badge-locked">Awaiting your signature</span>
+          {% endif %}
+        {% endif %}
+      </td>
+      <td>
+        <a href="{{ url_for('portal_document_download', doc_id=doc.id) }}">Download</a>
+        {% if doc.doc_type == 'engagement_letter' and not doc.signed_at %}
+        &middot; <a href="{{ url_for('portal_document_sign', doc_id=doc.id) }}">Review &amp; Sign</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No documents have been shared with you yet.</p>
+{% endif %}
+
+<h2>
+  Fund Development Resources
+  {% if not funding_tier_ok %}
+  <span class="tier-badge tier-badge-locked">Requires {{ funding_required_tier_label }}</span>
+  {% endif %}
+</h2>
+{% if funding_tier_ok %}
+  {% if funding_resources %}
+  {% set categories = funding_resources | map(attribute='category_label') | unique | list %}
+  {% for cat in categories %}
+  <h3>{{ cat }}</h3>
+  <div class="funding-cards">
+    {% for r in funding_resources if r.category_label == cat %}
+    <div class="funding-card">
+      <h4>{{ r.title }}</h4>
+      <p class="funding-meta"><strong>{{ r.funder }}</strong>{% if r.region %} &middot; {{ r.region }}{% endif %}</p>
+      {% if r.amount_range %}<p class="funding-meta">{{ r.amount_range }}</p>{% endif %}
+      {% if r.window_opens or r.window_closes %}
+      <p class="funding-meta">Window: {{ r.window_opens or '?' }} &ndash; {{ r.window_closes or '?' }}</p>
+      {% endif %}
+      {% if r.window_notes %}<p class="funding-meta">{{ r.window_notes }}</p>{% endif %}
+      <p class="funding-status">Status: {{ r.status or '—' }}</p>
+      {% if r.description %}<p>{{ r.description }}</p>{% endif %}
+      {% if r.eligibility_note %}<p class="funding-meta"><em>{{ r.eligibility_note }}</em></p>{% endif %}
+      {% if r.source_url %}<p><a href="{{ r.source_url }}" target="_blank" rel="noopener">Source &rarr;</a></p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% else %}
+  <p>No funding opportunities have been matched to your organization yet.</p>
+  {% endif %}
+{% else %}
+<p>Upgrade to {{ funding_required_tier_label }} to unlock curated funding opportunities matched to your organization.</p>
+{% endif %}
+
+<h2>Needs Assessment Workbooks</h2>
+{% if runs %}
+<table class="dashboard-table">
+  <thead><tr><th>Created</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    {% for run in runs %}
+    <tr>
+      <td>{{ run.created_at }}</td>
+      <td>{{ run.status }}</td>
+      <td>
+        {% if run.status == 'complete' %}
+        <a href="{{ url_for('portal_needs_run_download', run_id=run.id) }}">Download .xlsx</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No workbooks have been generated yet.</p>
+{% endif %}
+
+{% if milestone %}
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+<div id="milestone-banner" class="milestone-banner"></div>
+<script>
+  (function () {
+    var milestone = {{ milestone | tojson }};
+    var messages = {
+      welcome: "🎉 Welcome — you're officially in the program!",
+      signed: "🎉 Engagement letter signed — thank you!"
+    };
+    var message = messages[milestone];
+    if (message && window.confetti) {
+      var banner = document.getElementById("milestone-banner");
+      banner.textContent = message;
+      banner.classList.add("milestone-banner-visible");
+      setTimeout(function () {
+        banner.classList.remove("milestone-banner-visible");
+      }, 4000);
+
+      confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+      setTimeout(function () {
+        confetti({ particleCount: 120, spread: 100, origin: { y: 0.6 } });
+      }, 300);
+    }
+
+    if (window.history && window.history.replaceState) {
+      var url = new URL(window.location.href);
+      url.searchParams.delete("milestone");
+      window.history.replaceState({}, "", url);
+    }
+  })();
+</script>
+{% endif %}
+{% endblock %}

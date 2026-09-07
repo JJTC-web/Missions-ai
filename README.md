@@ -137,6 +137,110 @@ logging in with your own account (same blocked behavior above), then
 `insert into admins (email) values ('your-email@example.com');` to restore
 your access.
 
+## Client Portal + Document Vault
+
+Each organization can be given its own private, authenticated portal at
+`/portal` showing its fund development resources (Funding Opportunities,
+Needs Assessment Workbooks) and a **Documents** tab listing any files an
+admin has uploaded and attached to that org's record -- e.g. a signed
+engagement letter, an RFP draft, or a grant template. Clients cannot upload
+documents themselves in v1, and are always scoped to their own
+`organization_id` -- they can't see or query another org's data.
+
+### Admin side (`/dashboard/orgs/<id>`)
+
+- **Upload Document** -- attach a file to an org, tagged as an Engagement
+  Letter, RFP Draft, Grant Template, or Other. Files are stored in a
+  private Supabase Storage bucket (`org-documents`, created automatically
+  on first upload) at `org-documents/{organization_id}/{uuid}-{filename}`;
+  only the server (via `SUPABASE_SERVICE_ROLE_KEY`) ever reads or writes
+  that bucket directly -- admin and client downloads are always proxied
+  through this app's own auth-checked routes, never a public or signed
+  Supabase URL.
+- **Invite to Portal** -- creates (or reuses) a Supabase Auth user for the
+  org's contact email, then emails them a password-setup link via Resend.
+  Any documents already uploaded are listed in that invite email and are
+  waiting on the org's portal home the first time they sign in.
+
+### Client side (`/portal`)
+
+- `/portal/login` -- email + password sign-in (same Supabase Auth project
+  as the admin dashboard, but a `client_users` row -- not the `admins`
+  table -- grants access, and it grants access to exactly one org).
+- After following an invite email's link, `/portal/set-password` lets the
+  client set their password (calls Supabase Auth directly from the
+  browser using the invite link's short-lived token, then signs them into
+  this app).
+- `/portal` -- the org's portal home: Documents, Funding Opportunities
+  (gated by subscription tier, same as the admin preview badge), and
+  Needs Assessment Workbook downloads.
+
+### Signing an engagement letter in the portal
+
+Any Documents row tagged **Engagement Letter** shows a **Review & Sign**
+link until the client signs it. Signing asks for a typed full legal name
+plus an "I have read this... and agree" checkbox -- not a notarized
+e-signature, but enough to record who accepted the terms and when
+(`documents.signed_at` / `signed_by_name`), shown on both the client's
+portal and the admin org detail page.
+
+### Celebrations
+
+The portal fires a confetti banner (reusing the same
+`canvas-confetti`/`.milestone-banner` pattern as the assessment results
+page) at two moments:
+
+- **First login** -- the moment a client's portal access activates
+  (`client_users.activated_at` transitions from unset), welcoming them
+  "into the program." This fires once, on that first sign-in only.
+- **Signing an engagement letter** -- immediately after a client submits
+  their signature on any Engagement Letter document.
+
+### Generating a grant-specific engagement letter
+
+Below Documents on an org's admin page, **Generate a Grant-Specific
+Engagement Letter** produces a PDF (via `engagement_letter_generator.py`,
+pure-Python `fpdf2` -- no system dependencies) using the same section
+structure as JJTC's standard Fund Development Engagement Letter (Purpose,
+Scope of Services, Fees, Client Responsibilities, Term & Termination, No
+Guarantee of Funding, Acceptance) but scoped to one named grant instead of
+full fund development support. Fill in the grant name (required), funder,
+client representative name/title, and fee terms -- a **Grant category**
+picker sets a starting flat fee (`engagement_letter_generator.STANDARD_FLAT_FEES`)
+that's always editable: Corporate $550, Government $750, Traditional/Regular
+$200-$350 (enter the specific agreed amount), or Other/Custom for a reduced
+or one-off rate -- plus a 5% grant success bonus by default. The generated
+PDF is uploaded to the org's Document Vault as an Engagement Letter,
+immediately visible -- and signable -- on their portal.
+
+Already have a signed letter (e.g. a scanned or wet-signed original,
+rather than one generated here)? The regular **Upload Document** form has
+an "already signed" checkbox -- check it and enter who signed and when,
+and it uploads already marked Signed instead of prompting the client to
+sign again in the portal.
+
+### One-time setup
+
+No additional environment variables beyond what's already required for
+the admin dashboard (`SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`) -- the Document Vault reuses them for both
+Supabase Storage and the Admin API (used to create client Auth users and
+generate invite links without sending Supabase's own invite email).
+
+The `org-documents` Storage bucket is created automatically (as private)
+the first time a document is uploaded, so there's no manual Supabase
+dashboard step required beyond the `admins` table setup already described
+above.
+
+### Testing that a client can't see another org's data
+
+1. Create two orgs under **Organizations**, each with a different contact
+   email, and invite both to the portal.
+2. Upload a document to org A only.
+3. Sign in to `/portal` as org B's contact. Confirm org A's document does
+   not appear, and that guessing org A's document id in
+   `/portal/documents/<id>/download` returns a 404 rather than the file.
+
 ## Deployment (Railway)
 
 This app is set up to run the same way most Flask apps run on Railway:

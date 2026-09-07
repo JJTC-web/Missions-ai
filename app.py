@@ -2,16 +2,20 @@ import json
 import os
 import tempfile
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from functools import wraps
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, abort, session, flash, send_file, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, abort, session, flash, send_file, send_from_directory, Response
+from werkzeug.utils import secure_filename
 
 import action_plan
 import db
+import document_storage
 import email_notify
+import engagement_letter_generator
 import needs_assessment_db as ndb
+import portal_db
 import resource_library as reslib
 import tiers
 import needs_workbook_generator as workbook_gen
@@ -27,6 +31,13 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
 db.init_db()
 ndb.init_needs_assessment_tables()
+portal_db.init_portal_tables()
+
+ALLOWED_DOCUMENT_EXTENSIONS = {"pdf", "doc", "docx", "xls", "xlsx", "png", "jpg", "jpeg", "txt"}
+
+
+def _allowed_document(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_DOCUMENT_EXTENSIONS
 
 
 BOOKING_URL = "https://calendly.com/jjtcinfo/missionos-ai-meeting"
@@ -317,10 +328,10 @@ def assessment_toggle_action_item(submission_id, item_id):
     return redirect(url_for("assessment_results", submission_id=submission_id, milestone=milestone))
 
 
-def _safe_next_url(next_url):
+def _safe_next_url(next_url, default=None):
     if next_url and next_url.startswith("/") and not next_url.startswith("//"):
         return next_url
-    return url_for("dashboard")
+    return default or url_for("dashboard")
 
 
 def require_admin(view):
@@ -328,6 +339,15 @@ def require_admin(view):
     def wrapped(*args, **kwargs):
         if not session.get("is_admin"):
             return redirect(url_for("dashboard_login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def require_client(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("client_org_id"):
+            return redirect(url_for("portal_login", next=request.path))
         return view(*args, **kwargs)
     return wrapped
 
@@ -633,14 +653,163 @@ def dashboard_org_detail(org_id):
     region = ndb.get_region(org["region_id"])
     runs = ndb.list_needs_runs_for_org(org_id)
     funding_resources = ndb.list_funding_resources(org_id)
+    documents = portal_db.list_documents(org_id)
     return render_template(
         "dashboard_org_detail.html",
         org=org, region=region, runs=runs,
         funding_resources=funding_resources,
         funding_tier_ok=tiers.tier_meets(org["tier"], FUNDING_REQUIRED_TIER),
         funding_required_tier_label=tiers.TIER_LABELS[FUNDING_REQUIRED_TIER],
+        documents=documents, doc_type_labels=portal_db.DOC_TYPE_LABELS,
         error=None, funding_import_error=None,
     )
+
+
+@app.route("/dashboard/orgs/<int:org_id>/documents/upload", methods=["POST"])
+@require_admin
+def dashboard_org_document_upload(org_id):
+    org = ndb.get_org(org_id)
+    if not org:
+        abort(404)
+
+    file = request.files.get("file")
+    doc_type = request.form.get("doc_type", "other")
+    if doc_type not in portal_db.DOC_TYPES:
+        doc_type = "other"
+
+    if not file or not file.filename:
+        flash("Choose a file to upload.")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    filename = secure_filename(file.filename)
+    if not filename or not _allowed_document(filename):
+        flash("Unsupported file type.")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    already_signed = request.form.get("already_signed") == "on"
+    signed_by_name = None
+    signed_at = None
+    if already_signed:
+        signed_by_name = request.form.get("signed_by_name", "").strip() or None
+        signed_date_raw = request.form.get("signed_date", "").strip()
+        try:
+            signed_at = datetime.strptime(signed_date_raw, "%Y-%m-%d").date() if signed_date_raw else date.today()
+        except ValueError:
+            signed_at = date.today()
+
+    storage_path = f"{org_id}/{uuid.uuid4()}-{filename}"
+    try:
+        document_storage.upload_document(storage_path, file.read(), file.content_type)
+    except Exception as e:
+        app.logger.error("Document upload failed for org %s: %s", org_id, e)
+        flash(f"Upload failed: {e}")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    portal_db.create_document(
+        org_id, filename, storage_path, doc_type, session.get("admin_email"),
+        signed_at=signed_at, signed_by_name=signed_by_name,
+    )
+    flash(f"Uploaded {filename}.")
+    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+
+@app.route("/dashboard/orgs/<int:org_id>/documents/<int:doc_id>/download")
+@require_admin
+def dashboard_org_document_download(org_id, doc_id):
+    document = portal_db.get_document(doc_id, org_id)
+    if not document:
+        abort(404)
+    try:
+        file_bytes, content_type = document_storage.download_document(document["storage_path"])
+    except Exception as e:
+        app.logger.error("Document download failed for document %s: %s", doc_id, e)
+        abort(500)
+    return Response(
+        file_bytes,
+        mimetype=content_type,
+        headers={"Content-Disposition": f'attachment; filename="{document["file_name"]}"'},
+    )
+
+
+@app.route("/dashboard/orgs/<int:org_id>/documents/generate-grant-letter", methods=["POST"])
+@require_admin
+def dashboard_org_generate_grant_letter(org_id):
+    org = ndb.get_org(org_id)
+    if not org:
+        abort(404)
+
+    grant_name = request.form.get("grant_name", "").strip()
+    if not grant_name:
+        flash("Grant name is required to generate an engagement letter.")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    grant_funder = request.form.get("grant_funder", "").strip()
+    client_rep_name = request.form.get("client_rep_name", "").strip() or org.get("contact_name") or ""
+    client_rep_title = request.form.get("client_rep_title", "").strip()
+    try:
+        flat_fee = float(request.form.get("flat_fee") or engagement_letter_generator.DEFAULT_FLAT_FEE)
+        bonus_percent = float(request.form.get("bonus_percent") or engagement_letter_generator.DEFAULT_BONUS_PERCENT)
+    except ValueError:
+        flash("Flat fee and bonus percent must be numbers.")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    pdf_bytes = engagement_letter_generator.generate_grant_engagement_letter_pdf(
+        org_name=org["name"],
+        grant_name=grant_name,
+        grant_funder=grant_funder,
+        client_rep_name=client_rep_name,
+        client_rep_title=client_rep_title,
+        flat_fee=flat_fee,
+        bonus_percent=bonus_percent,
+    )
+
+    safe_filename = secure_filename(f"Engagement Letter - {grant_name}.pdf") or "engagement-letter.pdf"
+    storage_path = f"{org_id}/{uuid.uuid4()}-{safe_filename}"
+    try:
+        document_storage.upload_document(storage_path, pdf_bytes, "application/pdf")
+    except Exception as e:
+        app.logger.error("Grant engagement letter generation failed for org %s: %s", org_id, e)
+        flash(f"Couldn't generate the engagement letter: {e}")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    portal_db.create_document(org_id, safe_filename, storage_path, "engagement_letter", session.get("admin_email"))
+    flash(
+        f'Generated "{safe_filename}" and added it to {org["name"]}\'s Documents. '
+        "It's ready for them to review and sign in the portal."
+    )
+    return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+
+@app.route("/dashboard/orgs/<int:org_id>/invite", methods=["POST"])
+@require_admin
+def dashboard_org_invite(org_id):
+    org = ndb.get_org(org_id)
+    if not org:
+        abort(404)
+    if not org.get("contact_email"):
+        flash("Add a contact email for this organization before inviting them to the portal.")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    redirect_to = url_for("portal_set_password", _external=True)
+    try:
+        action_link, auth_user_id = supabase_auth.admin_generate_invite_link(org["contact_email"], redirect_to)
+    except Exception as e:
+        app.logger.error("Portal invite failed for org %s: %s", org_id, e)
+        flash(f"Couldn't create the portal invite: {e}")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    portal_db.upsert_client_user(org_id, auth_user_id, org["contact_email"])
+
+    documents = portal_db.list_documents(org_id)
+    try:
+        email_notify.send_portal_invite_email(org, action_link, documents)
+    except Exception as e:
+        app.logger.error("Failed to send portal invite email for org %s: %s", org_id, e)
+        flash(f"Portal access was created, but the invite email failed to send: {e}")
+        return redirect(url_for("dashboard_org_detail", org_id=org_id))
+
+    flash(f"Portal invite sent to {org['contact_email']}.")
+    return redirect(url_for("dashboard_org_detail", org_id=org_id))
 
 
 @app.route("/dashboard/orgs/<int:org_id>/funding/import", methods=["POST"])
@@ -658,12 +827,14 @@ def dashboard_org_funding_import(org_id):
         region = ndb.get_region(org["region_id"])
         runs = ndb.list_needs_runs_for_org(org_id)
         funding_resources = ndb.list_funding_resources(org_id)
+        documents = portal_db.list_documents(org_id)
         return render_template(
             "dashboard_org_detail.html",
             org=org, region=region, runs=runs,
             funding_resources=funding_resources,
             funding_tier_ok=tiers.tier_meets(org["tier"], FUNDING_REQUIRED_TIER),
             funding_required_tier_label=tiers.TIER_LABELS[FUNDING_REQUIRED_TIER],
+            documents=documents, doc_type_labels=portal_db.DOC_TYPE_LABELS,
             error=None, funding_import_error=f"Could not import: {e}",
         )
 
@@ -762,6 +933,142 @@ def dashboard_org_generate(org_id):
 def dashboard_needs_run_download(run_id):
     run = ndb.get_needs_run(run_id)
     if not run or run["status"] != "complete" or not run["workbook_json"]:
+        abort(404)
+
+    org = ndb.get_org(run["org_id"])
+    region = ndb.get_region(run["region_id"])
+    stats = ndb.list_region_stats(run["region_id"])
+    directory = ndb.list_resource_directory(run["region_id"])
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_path = os.path.join(tmpdir, f"needs-assessment-{run_id}.xlsx")
+        workbook_gen.build_workbook_xlsx(org, region, stats, directory, run["workbook_json"], output_path)
+        return send_file(
+            output_path,
+            as_attachment=True,
+            download_name=f"MissionOS-Needs-Assessment-{region['city']}-{run_id}.xlsx",
+        )
+
+
+@app.route("/portal/login", methods=["GET", "POST"])
+def portal_login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        next_url = request.form.get("next", "")
+
+        try:
+            authenticated_email = supabase_auth.sign_in_with_password(email, password)
+        except Exception as e:
+            flash(str(e))
+            return redirect(url_for("portal_login", next=next_url))
+
+        membership = portal_db.get_client_membership(authenticated_email)
+        if not membership:
+            flash("Your account doesn't have portal access for any organization.")
+            return redirect(url_for("portal_login", next=next_url))
+
+        first_login = not membership["activated_at"]
+        if first_login:
+            portal_db.mark_activated(authenticated_email)
+
+        session["client_org_id"] = membership["organization_id"]
+        session["client_email"] = authenticated_email
+
+        default_target = url_for("portal_home", milestone="welcome") if first_login else url_for("portal_home")
+        return redirect(_safe_next_url(next_url, default_target))
+
+    return render_template("portal_login.html", next=request.args.get("next", ""))
+
+
+@app.route("/portal/logout", methods=["POST"])
+def portal_logout():
+    session.pop("client_org_id", None)
+    session.pop("client_email", None)
+    return redirect(url_for("portal_login"))
+
+
+@app.route("/portal/set-password")
+def portal_set_password():
+    """Landing page for a Supabase invite/recovery link. The access token
+    arrives in the URL fragment (never sent to this server), so the actual
+    password-setting call happens client-side against Supabase directly --
+    see templates/portal_set_password.html."""
+    return render_template(
+        "portal_set_password.html",
+        supabase_url=os.environ.get("SUPABASE_URL", ""),
+        supabase_anon_key=os.environ.get("SUPABASE_ANON_KEY", ""),
+    )
+
+
+@app.route("/portal")
+@require_client
+def portal_home():
+    org = ndb.get_org(session["client_org_id"])
+    if not org:
+        abort(404)
+    documents = portal_db.list_documents(org["id"])
+    funding_tier_ok = tiers.tier_meets(org["tier"], FUNDING_REQUIRED_TIER)
+    funding_resources = ndb.list_funding_resources(org["id"]) if funding_tier_ok else []
+    runs = ndb.list_needs_runs_for_org(org["id"])
+    return render_template(
+        "portal_home.html",
+        org=org,
+        documents=documents,
+        doc_type_labels=portal_db.DOC_TYPE_LABELS,
+        funding_resources=funding_resources,
+        funding_tier_ok=funding_tier_ok,
+        funding_required_tier_label=tiers.TIER_LABELS[FUNDING_REQUIRED_TIER],
+        runs=runs,
+        client_email=session.get("client_email"),
+        milestone=request.args.get("milestone"),
+    )
+
+
+@app.route("/portal/documents/<int:doc_id>/sign", methods=["GET", "POST"])
+@require_client
+def portal_document_sign(doc_id):
+    document = portal_db.get_document(doc_id, session["client_org_id"])
+    if not document or document["doc_type"] != "engagement_letter":
+        abort(404)
+    if document["signed_at"]:
+        return redirect(url_for("portal_home"))
+
+    if request.method == "POST":
+        signed_by_name = request.form.get("signed_by_name", "").strip()
+        if not signed_by_name or not request.form.get("agree"):
+            flash("Enter your full name and confirm you agree to sign.")
+            return redirect(url_for("portal_document_sign", doc_id=doc_id))
+
+        portal_db.sign_document(doc_id, session["client_org_id"], signed_by_name)
+        return redirect(url_for("portal_home", milestone="signed"))
+
+    return render_template("portal_document_sign.html", document=document)
+
+
+@app.route("/portal/documents/<int:doc_id>/download")
+@require_client
+def portal_document_download(doc_id):
+    document = portal_db.get_document(doc_id, session["client_org_id"])
+    if not document:
+        abort(404)
+    try:
+        file_bytes, content_type = document_storage.download_document(document["storage_path"])
+    except Exception as e:
+        app.logger.error("Document download failed for document %s: %s", doc_id, e)
+        abort(500)
+    return Response(
+        file_bytes,
+        mimetype=content_type,
+        headers={"Content-Disposition": f'attachment; filename="{document["file_name"]}"'},
+    )
+
+
+@app.route("/portal/needs-runs/<int:run_id>/download.xlsx")
+@require_client
+def portal_needs_run_download(run_id):
+    run = ndb.get_needs_run(run_id)
+    if not run or run["org_id"] != session["client_org_id"] or run["status"] != "complete" or not run["workbook_json"]:
         abort(404)
 
     org = ndb.get_org(run["org_id"])

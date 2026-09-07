@@ -5,3 +5,4 @@ anthropic==0.120.2
 requests==2.32.3
 pg8000==1.31.2
 openpyxl==3.1.5
+fpdf2==2.8.8
