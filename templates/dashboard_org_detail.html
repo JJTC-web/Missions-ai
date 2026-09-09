@@ -190,6 +190,15 @@
     itself sees on its Client Portal once invited.
   </p>
 
+  <form method="post" action="{{ url_for('dashboard_org_funding_match', org_id=org.id) }}">
+    <button type="submit" class="button">Find Matched Funding Opportunities</button>
+  </form>
+  <p class="funding-meta">
+    Uses Claude with live web search to find real, currently open grants matching this
+    org's mission and region. Review results below and remove any that aren't a good fit
+    &mdash; this can take up to a minute.
+  </p>
+
   {% if funding_resources %}
   {% set categories = funding_resources | map(attribute='category_label') | unique | list %}
   {% for cat in categories %}
